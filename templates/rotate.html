@@ -452,6 +452,16 @@
                 if (data.success) {
                     currentFile = data.filename;
                     await loadPDF(data.filename);
+                    // 清除选择状态
+                    selectedPages.clear();
+                    // 清除所有复选框的选中状态
+                    document.querySelectorAll('.page-checkbox').forEach(checkbox => {
+                        checkbox.checked = false;
+                    });
+                    // 移除所有页面的选中样式
+                    document.querySelectorAll('.page-thumbnail').forEach(el => {
+                        el.classList.remove('selected-page');
+                    });
                 } else {
                     alert(data.error);
                 }
