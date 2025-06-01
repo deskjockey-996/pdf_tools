@@ -1,6 +1,6 @@
 # PDF工具大全
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/deskjockey-996/pdf_tools/releases/tag/v1.0.0)
+[![Version](https://img.shields.io/badge/version-1.0.1-blue.svg)](https://github.com/deskjockey-996/pdf_tools/releases/tag/v1.0.1)
 
 一个功能强大的在线PDF处理工具集合，提供多种实用的PDF处理功能。
 
