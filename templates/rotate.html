@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF旋转工具 - PDF工具大全</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            overflow: hidden;
+        }
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            height: calc(100vh - 100px);
+            display: flex;
+            flex-direction: column;
+        }
+        .card-header {
+            background-color: #007bff;
+            color: white;
+            border-radius: 15px 15px 0 0 !important;
+            flex-shrink: 0;
+        }
+        .card-body {
+            flex: 1;
+            overflow: hidden;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            border: none;
+            padding: 10px 20px;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+        .form-control {
+            border-radius: 10px;
+        }
+        .alert {
+            border-radius: 10px;
+        }
+        .pdf-preview {
+            width: 100%;
+            height: calc(100% - 60px);
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        .pdf-preview iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        .page-thumbnail {
+            width: 100%;
+            height: 140px;
+            border: 1px solid #ddd;
+            margin: 0;
+            cursor: move;
+            position: relative;
+            background: #fff;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            border-radius: 8px;
+            flex-shrink: 0;
+        }
+        .page-thumbnail canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .page-number {
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+        .page-controls {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            display: none;
+        }
+        .page-thumbnail:hover .page-controls {
+            display: block;
+        }
+        .page-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 0;
+            background: #fff;
+        }
+        .operation-panel {
+            background: #fff;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px;
+            flex-shrink: 0;
+        }
+        .thumbnail-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 15px 15px 15px;
+            min-height: 0;
+        }
+        .selected-page {
+            border: 2px solid #007bff;
+            transform: scale(1.05);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .page-checkbox {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            z-index: 2;
+        }
+        .page-checkbox:checked {
+            accent-color: #007bff;
+        }
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+        }
+        .back-button {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <a href="/" class="btn btn-light back-button">
+        <i class="fas fa-arrow-left"></i> 返回首页
+    </a>
+
+    <div class="container-fluid py-4">
+        <h1 class="text-center mb-4">PDF旋转工具</h1>
+        
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="row">
+            <!-- 缩略图面板 -->
+            <div class="col-md-2">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-th me-2"></i>页面缩略图</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="operation-panel">
+                            <input type="file" class="form-control" id="pdfFile" accept=".pdf" multiple onchange="uploadFiles()">
+                        </div>
+                        <div class="thumbnail-container">
+                            <div id="pageList" class="page-list"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PDF预览 -->
+            <div class="col-md-7">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-file-pdf me-2"></i>PDF预览</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="pdfPreview" class="pdf-preview">
+                            <div class="text-center py-5">
+                                <i class="fas fa-file-pdf fa-3x text-muted"></i>
+                                <p class="mt-3">请选择或上传PDF文件</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 操作面板 -->
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-tools me-2"></i>操作面板</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="operation-panel">
+                            <div class="mb-3">
+                                <label class="form-label">旋转角度</label>
+                                <select class="form-select" id="rotateAngle">
+                                    <option value="90">90度</option>
+                                    <option value="180">180度</option>
+                                    <option value="270">270度</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-primary w-100 mb-3" onclick="rotateSelectedPage()">旋转选中页面</button>
+                            <button class="btn btn-primary w-100 mb-3" onclick="deleteSelectedPages()">删除选中页面</button>
+                            <button class="btn btn-primary w-100 mb-3" onclick="saveChanges()">保存更改</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+        
+        let currentFile = null;
+        let selectedPages = new Set();
+        let currentPage = 1;
+        let pdfDoc = null;
+        let pdfViewer = null;
+        
+        // 初始化拖拽排序
+        new Sortable(document.getElementById('pageList'), {
+            animation: 150,
+            ghostClass: 'sortable-ghost',
+            direction: 'vertical'
+        });
+
+        async function uploadFiles() {
+            const fileInput = document.getElementById('pdfFile');
+            const files = fileInput.files;
+            
+            if (files.length === 0) {
+                alert('请选择文件');
+                return;
+            }
+
+            showLoading();
+            const formData = new FormData();
+            formData.append('pdf_file', files[0]);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    currentFile = data.filename;
+                    await loadPDF(data.filename);
+                } else {
+                    alert(data.error);
+                }
+            } catch (error) {
+                alert('上传失败：' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function showLoading() {
+            const preview = document.getElementById('pdfPreview');
+            const overlay = document.createElement('div');
+            overlay.className = 'loading-overlay';
+            overlay.innerHTML = '<div class="spinner-border text-primary" role="status"></div>';
+            preview.appendChild(overlay);
+        }
+
+        function hideLoading() {
+            const overlay = document.querySelector('.loading-overlay');
+            if (overlay) {
+                overlay.remove();
+            }
+        }
+
+        async function loadPDF(filename) {
+            try {
+                showLoading();
+                const loadingTask = pdfjsLib.getDocument(`/preview/${filename}`);
+                pdfDoc = await loadingTask.promise;
+                
+                // 生成缩略图
+                await generateThumbnails();
+                
+                // 加载预览
+                loadPDFPreview(filename);
+            } catch (error) {
+                alert('加载PDF失败：' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function loadPDFPreview(filename) {
+            const preview = document.getElementById('pdfPreview');
+            if (!pdfViewer) {
+                pdfViewer = document.createElement('iframe');
+                pdfViewer.style.width = '100%';
+                pdfViewer.style.height = '100%';
+                pdfViewer.style.border = 'none';
+                preview.appendChild(pdfViewer);
+            }
+            pdfViewer.src = `/preview/${filename}#page=${currentPage}`;
+        }
+
+        async function generateThumbnails() {
+            const pageList = document.getElementById('pageList');
+            pageList.innerHTML = '';
+            
+            for (let i = 1; i <= pdfDoc.numPages; i++) {
+                const pageDiv = document.createElement('div');
+                pageDiv.className = 'page-thumbnail';
+                
+                const canvas = document.createElement('canvas');
+                pageDiv.appendChild(canvas);
+                
+                const pageNumber = document.createElement('div');
+                pageNumber.className = 'page-number';
+                pageNumber.textContent = i;
+                pageDiv.appendChild(pageNumber);
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'page-checkbox';
+                checkbox.onchange = (e) => {
+                    e.stopPropagation();
+                    togglePageSelection(i, checkbox.checked);
+                };
+                pageDiv.appendChild(checkbox);
+                
+                pageDiv.onclick = () => selectPage(i, pageDiv);
+                pageList.appendChild(pageDiv);
+                
+                // 渲染缩略图
+                const page = await pdfDoc.getPage(i);
+                const viewport = page.getViewport({ scale: 0.2 });
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                
+                const renderContext = {
+                    canvasContext: canvas.getContext('2d'),
+                    viewport: viewport
+                };
+                
+                await page.render(renderContext).promise;
+            }
+        }
+
+        function selectPage(pageNum, element) {
+            // 移除其他页面的选中状态
+            document.querySelectorAll('.page-thumbnail').forEach(el => {
+                el.classList.remove('selected-page');
+            });
+            
+            // 添加当前页面的选中状态
+            element.classList.add('selected-page');
+            currentPage = pageNum;
+            
+            // 更新预览
+            if (pdfViewer) {
+                pdfViewer.src = `/preview/${currentFile}#page=${pageNum}`;
+            }
+            
+            // 自动选中复选框
+            const checkbox = element.querySelector('.page-checkbox');
+            if (checkbox && !checkbox.checked) {
+                checkbox.checked = true;
+                togglePageSelection(pageNum, true);
+            }
+        }
+
+        function togglePageSelection(pageNum, selected) {
+            if (selected) {
+                selectedPages.add(pageNum);
+            } else {
+                selectedPages.delete(pageNum);
+            }
+        }
+
+        async function rotateSelectedPage() {
+            if (!currentFile) {
+                alert('请先上传PDF文件');
+                return;
+            }
+
+            if (selectedPages.size === 0) {
+                alert('请选择要旋转的页面');
+                return;
+            }
+
+            const angle = document.getElementById('rotateAngle').value;
+            
+            try {
+                showLoading();
+                const response = await fetch('/process', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        operation: 'rotate',
+                        filename: currentFile,
+                        angle: parseInt(angle),
+                        pages: Array.from(selectedPages)
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    currentFile = data.filename;
+                    await loadPDF(data.filename);
+                } else {
+                    alert(data.error);
+                }
+            } catch (error) {
+                alert('操作失败：' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function deleteSelectedPages() {
+            if (!currentFile) {
+                alert('请先上传PDF文件');
+                return;
+            }
+
+            if (selectedPages.size === 0) {
+                alert('请选择要删除的页面');
+                return;
+            }
+
+            if (!confirm(`确定要删除选中的 ${selectedPages.size} 个页面吗？`)) {
+                return;
+            }
+
+            try {
+                showLoading();
+                const response = await fetch('/process', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        operation: 'delete',
+                        filename: currentFile,
+                        pages: Array.from(selectedPages)
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    currentFile = data.filename;
+                    await loadPDF(data.filename);
+                    selectedPages.clear();
+                } else {
+                    alert(data.error);
+                }
+            } catch (error) {
+                alert('操作失败：' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function saveChanges() {
+            if (!currentFile) {
+                alert('请先上传PDF文件');
+                return;
+            }
+
+            const pageOrder = Array.from(document.querySelectorAll('.page-thumbnail')).map(
+                (el, index) => parseInt(el.querySelector('.page-number').textContent)
+            );
+
+            try {
+                showLoading();
+                const response = await fetch('/process', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        operation: 'reorder',
+                        filename: currentFile,
+                        new_order: pageOrder
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    window.location.href = `/download/${data.filename}`;
+                } else {
+                    alert(data.error);
+                }
+            } catch (error) {
+                alert('保存失败：' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+    </script>
+</body>
+</html> 
