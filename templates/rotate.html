@@ -404,11 +404,11 @@
                 pdfViewer.src = `/preview/${currentFile}#page=${pageNum}`;
             }
             
-            // 自动选中复选框
+            // 切换复选框状态
             const checkbox = element.querySelector('.page-checkbox');
-            if (checkbox && !checkbox.checked) {
-                checkbox.checked = true;
-                togglePageSelection(pageNum, true);
+            if (checkbox) {
+                checkbox.checked = !checkbox.checked;
+                togglePageSelection(pageNum, checkbox.checked);
             }
         }
 
