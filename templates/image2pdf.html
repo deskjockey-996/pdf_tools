@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片转PDF工具 - PDF工具大全</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .container-fluid {
+            flex: 1;
+        }
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            height: calc(100vh - 100px);
+            display: flex;
+            flex-direction: column;
+        }
+        .card-header {
+            background-color: #007bff;
+            color: white;
+            border-radius: 15px 15px 0 0 !important;
+            flex-shrink: 0;
+        }
+        .card-body {
+            flex: 1;
+            overflow: hidden;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            border: none;
+            padding: 10px 20px;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+        .form-control {
+            border-radius: 10px;
+        }
+        .alert {
+            border-radius: 10px;
+        }
+        .image-preview {
+            width: 100%;
+            height: calc(100% - 60px);
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            position: relative;
+            overflow: auto;
+        }
+        .image-preview img {
+            max-width: 100%;
+            height: auto;
+        }
+        .image-thumbnail {
+            width: 100%;
+            height: 140px;
+            border: 1px solid #ddd;
+            margin: 0;
+            cursor: move;
+            position: relative;
+            background: #fff;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            border-radius: 8px;
+            flex-shrink: 0;
+        }
+        .image-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .image-number {
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+        .image-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 0;
+            background: #fff;
+        }
+        .operation-panel {
+            background: #fff;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px;
+            flex-shrink: 0;
+        }
+        .thumbnail-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 15px 15px 15px;
+            min-height: 0;
+        }
+        .selected-image {
+            border: 2px solid #007bff;
+            transform: scale(1.05);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .image-checkbox {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            z-index: 2;
+        }
+        .image-checkbox:checked {
+            accent-color: #007bff;
+        }
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+        }
+        .back-button {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <a href="/" class="btn btn-light back-button">
+        <i class="fas fa-arrow-left"></i> 返回首页
+    </a>
+
+    <div class="container-fluid py-4">
+        <h1 class="text-center mb-4">图片转PDF工具</h1>
+        
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="row">
+            <!-- 缩略图面板 -->
+            <div class="col-md-2">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-th me-2"></i>图片缩略图</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="operation-panel">
+                            <input type="file" class="form-control" id="imageFiles" accept="image/*" multiple onchange="uploadFiles()">
+                            <div class="mt-2 d-flex justify-content-between align-items-center">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="selectAll" onchange="toggleSelectAll(this.checked)">
+                                    <label class="form-check-label" for="selectAll">全选/全不选</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="thumbnail-container">
+                            <div id="imageList" class="image-list"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 图片预览 -->
+            <div class="col-md-7">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-image me-2"></i>图片预览</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="imagePreview" class="image-preview">
+                            <div class="text-center py-5">
+                                <i class="fas fa-images fa-3x text-muted"></i>
+                                <p class="mt-3">请选择或上传图片</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 操作面板 -->
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-tools me-2"></i>操作面板</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="operation-panel">
+                            <div class="mb-3">
+                                <label class="form-label">旋转角度</label>
+                                <select class="form-select" id="rotateAngle">
+                                    <option value="90">90度</option>
+                                    <option value="180">180度</option>
+                                    <option value="270">270度</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-primary w-100 mb-3" onclick="rotateSelectedImage()">旋转选中图片</button>
+                            <button class="btn btn-primary w-100 mb-3" onclick="deleteSelectedImages()">删除选中图片</button>
+                            <button class="btn btn-primary w-100 mb-3" onclick="convertToPDF()">转换为PDF</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% include 'footer.html' %}
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <script>
+        let selectedImages = new Set();
+        let currentImage = null;
+        let currentBatchId = null;
+        
+        // 初始化拖拽排序
+        new Sortable(document.getElementById('imageList'), {
+            animation: 150,
+            ghostClass: 'sortable-ghost',
+            direction: 'vertical'
+        });
+
+        // 页面加载时获取当前批次的图片
+        window.onload = async function() {
+            try {
+                const response = await fetch('/get_batch_images');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        currentBatchId = data.batch_id;
+                        await loadImages(data.filenames);
+                    }
+                }
+            } catch (error) {
+                console.error('加载图片失败:', error);
+            }
+        };
+
+        async function uploadFiles() {
+            const fileInput = document.getElementById('imageFiles');
+            const files = fileInput.files;
+            
+            if (files.length === 0) {
+                alert('请选择文件');
+                return;
+            }
+            
+            showLoading();
+            
+            try {
+                // 清空当前选择
+                selectedImages.clear();
+                const selectAllCheckbox = document.getElementById('selectAll');
+                if (selectAllCheckbox) {
+                    selectAllCheckbox.checked = false;
+                }
+                
+                // 逐个上传文件
+                for (let i = 0; i < files.length; i++) {
+                    const formData = new FormData();
+                    formData.append('file', files[i]);
+                    
+                    console.log(`开始上传第 ${i + 1} 个文件...`);
+                    
+                    const response = await fetch('/upload_image', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const result = await response.json();
+                    console.log(`第 ${i + 1} 个文件上传响应数据:`, result);
+                    
+                    if (result.success) {
+                        currentBatchId = result.batch_id;
+                        // 重新加载所有图片
+                        const batchResponse = await fetch('/get_batch_images');
+                        if (batchResponse.ok) {
+                            const batchData = await batchResponse.json();
+                            if (batchData.success) {
+                                await loadImages(batchData.filenames);
+                            }
+                        }
+                    } else {
+                        alert(result.error || '上传失败');
+                    }
+                }
+                
+                // 清空文件输入
+                fileInput.value = '';
+                
+            } catch (error) {
+                console.error('上传失败:', error);
+                alert('上传失败: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function showLoading() {
+            const preview = document.getElementById('imagePreview');
+            const overlay = document.createElement('div');
+            overlay.className = 'loading-overlay';
+            overlay.innerHTML = '<div class="spinner-border text-primary" role="status"></div>';
+            preview.appendChild(overlay);
+        }
+
+        function hideLoading() {
+            const overlay = document.querySelector('.loading-overlay');
+            if (overlay) {
+                overlay.remove();
+            }
+        }
+
+        function selectImage(imageNum, element, filename) {
+            // 移除其他图片的选中状态
+            document.querySelectorAll('.image-thumbnail').forEach(el => {
+                el.classList.remove('selected-image');
+            });
+            
+            // 添加当前图片的选中状态
+            element.classList.add('selected-image');
+            currentImage = filename;
+            
+            // 更新预览，添加时间戳防止缓存
+            const preview = document.getElementById('imagePreview');
+            preview.innerHTML = `<img src="/uploads/pics/${filename}?t=${new Date().getTime()}" class="img-fluid">`;
+            
+            // 更新复选框状态
+            const checkbox = element.querySelector('.image-checkbox');
+            if (checkbox) {
+                // 不再切换复选框状态，而是直接设置为选中
+                checkbox.checked = true;
+                toggleImageSelection(imageNum, true);
+            }
+
+            // 更新全选复选框状态
+            const allCheckboxes = document.querySelectorAll('.image-checkbox');
+            const selectAllCheckbox = document.getElementById('selectAll');
+            if (selectAllCheckbox) {
+                selectAllCheckbox.checked = allCheckboxes.length === selectedImages.size;
+            }
+
+            // 打印调试信息
+            console.log('选中的图片:', {
+                imageNum,
+                filename,
+                selectedImages: Array.from(selectedImages)
+            });
+        }
+
+        function toggleSelectAll(checked) {
+            console.log('开始全选操作:', checked);  // 调试信息
+            
+            // 清空当前选择
+            selectedImages.clear();
+            
+            // 更新所有复选框状态和选中状态
+            document.querySelectorAll('.image-thumbnail').forEach((thumbnail, index) => {
+                const checkbox = thumbnail.querySelector('.image-checkbox');
+                checkbox.checked = checked;
+                
+                if (checked) {
+                    thumbnail.classList.add('selected-image');
+                    selectedImages.add(index + 1);
+                } else {
+                    thumbnail.classList.remove('selected-image');
+                }
+            });
+            
+            // 更新预览区域
+            if (checked) {
+                // 如果有图片，显示第一张图片的预览
+                const firstImage = document.querySelector('.image-thumbnail');
+                if (firstImage) {
+                    const img = firstImage.querySelector('img');
+                    const filename = img.src.split('/').pop().split('?')[0];
+                    // 直接设置第一张图片的选中状态，而不是调用 selectImage
+                    firstImage.classList.add('selected-image');
+                    const preview = document.getElementById('imagePreview');
+                    preview.innerHTML = `<img src="/uploads/pics/${filename}?t=${new Date().getTime()}" class="img-fluid">`;
+                }
+            } else {
+                // 清空预览区域
+                const preview = document.getElementById('imagePreview');
+                preview.innerHTML = `
+                    <div class="text-center py-5">
+                        <i class="fas fa-images fa-3x text-muted"></i>
+                        <p class="mt-3">请选择或上传图片</p>
+                    </div>
+                `;
+            }
+            
+            console.log('全选操作完成，选中的图片:', Array.from(selectedImages));  // 调试信息
+        }
+
+        function toggleImageSelection(imageNum, selected) {
+            console.log('切换图片选择状态:', imageNum, selected);  // 调试信息
+            
+            if (selected) {
+                selectedImages.add(imageNum);
+            } else {
+                selectedImages.delete(imageNum);
+            }
+            
+            // 更新全选复选框状态
+            const allCheckboxes = document.querySelectorAll('.image-checkbox');
+            const selectAllCheckbox = document.getElementById('selectAll');
+            if (selectAllCheckbox) {
+                selectAllCheckbox.checked = allCheckboxes.length === selectedImages.size;
+            }
+            
+            console.log('选择状态更新完成，选中的图片:', Array.from(selectedImages));  // 调试信息
+        }
+
+        async function loadImages(filenames) {
+            const imageList = document.getElementById('imageList');
+            imageList.innerHTML = '';
+            
+            console.log('加载图片:', filenames);
+            
+            if (filenames.length === 0) {
+                // 如果没有图片，清空预览区域
+                const preview = document.getElementById('imagePreview');
+                preview.innerHTML = `
+                    <div class="text-center py-5">
+                        <i class="fas fa-images fa-3x text-muted"></i>
+                        <p class="mt-3">请选择或上传图片</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // 保存当前选中的图片索引
+            const currentSelected = Array.from(selectedImages);
+            
+            for (let i = 0; i < filenames.length; i++) {
+                const imageDiv = document.createElement('div');
+                imageDiv.className = 'image-thumbnail';
+                
+                const img = document.createElement('img');
+                img.src = `/uploads/pics/${filenames[i]}?t=${new Date().getTime()}`;
+                img.onerror = function() {
+                    console.error(`加载图片失败: ${filenames[i]}`);
+                    this.src = '/static/error.png';
+                };
+                imageDiv.appendChild(img);
+                
+                const imageNumber = document.createElement('div');
+                imageNumber.className = 'image-number';
+                imageNumber.textContent = i + 1;
+                imageDiv.appendChild(imageNumber);
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'image-checkbox';
+                checkbox.checked = currentSelected.includes(i + 1);
+                checkbox.onchange = (e) => {
+                    e.stopPropagation();
+                    toggleImageSelection(i + 1, checkbox.checked);
+                };
+                imageDiv.appendChild(checkbox);
+                
+                imageDiv.onclick = () => selectImage(i + 1, imageDiv, filenames[i]);
+                imageList.appendChild(imageDiv);
+            }
+
+            // 更新选中状态
+            selectedImages.clear();
+            currentSelected.forEach(num => {
+                if (num <= filenames.length) {
+                    selectedImages.add(num);
+                }
+            });
+
+            // 如果有选中的图片，显示第一张选中图片的预览
+            if (selectedImages.size > 0) {
+                const firstSelectedIndex = Math.min(...Array.from(selectedImages)) - 1;
+                const firstSelectedImage = imageList.children[firstSelectedIndex];
+                if (firstSelectedImage) {
+                    selectImage(firstSelectedIndex + 1, firstSelectedImage, filenames[firstSelectedIndex]);
+                }
+            } else if (filenames.length > 0) {
+                // 如果没有选中的图片，显示第一张图片
+                const firstImage = imageList.firstElementChild;
+                if (firstImage) {
+                    selectImage(1, firstImage, filenames[0]);
+                }
+            }
+        }
+
+        async function rotateSelectedImage() {
+            if (selectedImages.size === 0) {
+                alert('请选择要旋转的图片');
+                return;
+            }
+
+            const angle = document.getElementById('rotateAngle').value;
+            
+            try {
+                showLoading();
+                
+                // 获取选中图片的文件名
+                const selectedFilenames = [];
+                document.querySelectorAll('.image-thumbnail').forEach((thumbnail, index) => {
+                    if (selectedImages.has(index + 1)) {
+                        const img = thumbnail.querySelector('img');
+                        const filename = img.src.split('/').pop().split('?')[0];
+                        selectedFilenames.push(filename);
+                    }
+                });
+                
+                console.log('旋转图片:', selectedFilenames);
+                
+                const response = await fetch('/process_images', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        operation: 'rotate',
+                        angle: parseInt(angle),
+                        selected_images: selectedFilenames
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('旋转响应:', data);
+                
+                if (data.success) {
+                    await loadImages(data.filenames);
+                } else {
+                    alert(data.error || '旋转失败');
+                }
+            } catch (error) {
+                console.error('旋转错误:', error);
+                alert('操作失败：' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function deleteSelectedImages() {
+            if (selectedImages.size === 0) {
+                alert('请选择要删除的图片');
+                return;
+            }
+
+            if (!confirm(`确定要删除选中的 ${selectedImages.size} 张图片吗？`)) {
+                return;
+            }
+
+            try {
+                showLoading();
+                
+                // 获取选中图片的文件名
+                const selectedFilenames = [];
+                document.querySelectorAll('.image-thumbnail').forEach((thumbnail, index) => {
+                    if (selectedImages.has(index + 1)) {
+                        const img = thumbnail.querySelector('img');
+                        const filename = img.src.split('/').pop().split('?')[0];
+                        selectedFilenames.push(filename);
+                    }
+                });
+                
+                console.log('删除图片:', selectedFilenames);
+                
+                const response = await fetch('/process_images', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        operation: 'delete',
+                        selected_images: selectedFilenames
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('删除响应:', data);
+                
+                if (data.success) {
+                    await loadImages(data.filenames);
+                } else {
+                    alert(data.error || '删除失败');
+                }
+            } catch (error) {
+                console.error('删除错误:', error);
+                alert('操作失败：' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function convertToPDF() {
+            const imageFiles = document.querySelectorAll('.image-thumbnail');
+            if (imageFiles.length === 0) {
+                alert('请先上传图片');
+                return;
+            }
+
+            if (selectedImages.size === 0) {
+                alert('请选择要转换的图片');
+                return;
+            }
+
+            try {
+                showLoading();
+                console.log('开始转换PDF...');
+                
+                // 获取选中图片的文件名
+                const selectedFilenames = [];
+                document.querySelectorAll('.image-thumbnail').forEach((thumbnail, index) => {
+                    if (selectedImages.has(index + 1)) {
+                        const img = thumbnail.querySelector('img');
+                        const filename = img.src.split('/').pop().split('?')[0];
+                        selectedFilenames.push(filename);
+                    }
+                });
+                
+                console.log('选中的图片:', selectedFilenames);
+                
+                const response = await fetch('/convert_to_pdf', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        selected_images: selectedFilenames
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('转换响应:', data);
+                
+                if (data.success) {
+                    // 触发文件下载
+                    window.location.href = `/download/${data.filename}`;
+                    
+                    // 清除选择状态
+                    selectedImages.clear();
+                    document.querySelectorAll('.image-checkbox').forEach(checkbox => {
+                        checkbox.checked = false;
+                    });
+                    document.querySelectorAll('.image-thumbnail').forEach(el => {
+                        el.classList.remove('selected-image');
+                    });
+                } else {
+                    alert(data.error || '转换失败');
+                }
+            } catch (error) {
+                console.error('转换错误:', error);
+                alert('转换失败：' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+    </script>
+</body>
+</html> 

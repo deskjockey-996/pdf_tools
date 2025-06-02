@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PDF旋转工具 - PDF工具大全</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='ico.jpeg') }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.css" rel="stylesheet">
@@ -255,7 +256,7 @@
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
         
-        let currentFile = null;
+        let currentPDF = null;
         let selectedPages = new Set();
         let currentPage = 1;
         let pdfDoc = null;
@@ -268,36 +269,60 @@
             direction: 'vertical'
         });
 
+        function showMessage(message, type) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `alert alert-${type} alert-dismissible fade show`;
+            messageDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            document.querySelector('.container-fluid').insertBefore(messageDiv, document.querySelector('.row'));
+            
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 3000);
+        }
+        
         async function uploadFiles() {
             const fileInput = document.getElementById('pdfFile');
-            const files = fileInput.files;
+            const file = fileInput.files[0];
             
-            if (files.length === 0) {
-                alert('请选择文件');
+            if (!file) {
+                showMessage('请选择PDF文件', 'warning');
                 return;
             }
-
-            showLoading();
+            
+            if (!file.name.toLowerCase().endsWith('.pdf')) {
+                showMessage('只支持PDF文件', 'warning');
+                fileInput.value = '';
+                return;
+            }
+            
             const formData = new FormData();
-            formData.append('pdf_file', files[0]);
-
+            formData.append('file', file);
+            
             try {
-                const response = await fetch('/upload', {
+                const response = await fetch('/pdf/upload', {
                     method: 'POST',
                     body: formData
                 });
                 
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || '上传失败');
+                }
+                
                 const data = await response.json();
                 if (data.success) {
-                    currentFile = data.filename;
+                    showMessage('PDF上传成功', 'success');
+                    currentPDF = data.filename;
                     await loadPDF(data.filename);
                 } else {
-                    alert(data.error);
+                    throw new Error(data.error || '上传失败');
                 }
             } catch (error) {
-                alert('上传失败：' + error.message);
-            } finally {
-                hideLoading();
+                console.error('上传错误:', error);
+                showMessage(error.message || '上传失败，请重试', 'danger');
             }
         }
 
@@ -319,7 +344,7 @@
         async function loadPDF(filename) {
             try {
                 showLoading();
-                const loadingTask = pdfjsLib.getDocument(`/preview/${filename}`);
+                const loadingTask = pdfjsLib.getDocument(`/pdf/file/${filename}`);
                 pdfDoc = await loadingTask.promise;
                 
                 // 生成缩略图
@@ -328,7 +353,8 @@
                 // 加载预览
                 loadPDFPreview(filename);
             } catch (error) {
-                alert('加载PDF失败：' + error.message);
+                console.error('加载PDF失败:', error);
+                showMessage('加载PDF失败：' + error.message, 'danger');
             } finally {
                 hideLoading();
             }
@@ -336,14 +362,39 @@
 
         function loadPDFPreview(filename) {
             const preview = document.getElementById('pdfPreview');
-            if (!pdfViewer) {
-                pdfViewer = document.createElement('iframe');
-                pdfViewer.style.width = '100%';
-                pdfViewer.style.height = '100%';
-                pdfViewer.style.border = 'none';
-                preview.appendChild(pdfViewer);
+            preview.innerHTML = '';
+            
+            const iframe = document.createElement('iframe');
+            iframe.style.width = '100%';
+            iframe.style.height = '100%';
+            iframe.style.border = 'none';
+            iframe.src = `/pdf/file/${filename}#page=${currentPage}`;
+            preview.appendChild(iframe);
+            pdfViewer = iframe;
+        }
+
+        async function refreshPDFView() {
+            if (!currentPDF) return;
+            
+            try {
+                showLoading();
+                // 重新加载PDF文档
+                const loadingTask = pdfjsLib.getDocument(`/pdf/file/${currentPDF}`);
+                pdfDoc = await loadingTask.promise;
+                
+                // 重新生成缩略图
+                await generateThumbnails();
+                
+                // 更新预览
+                if (pdfViewer) {
+                    pdfViewer.src = `/pdf/file/${currentPDF}#page=${currentPage}`;
+                }
+            } catch (error) {
+                console.error('刷新PDF失败:', error);
+                showMessage('刷新PDF失败：' + error.message, 'danger');
+            } finally {
+                hideLoading();
             }
-            pdfViewer.src = `/preview/${filename}#page=${currentPage}`;
         }
 
         async function generateThumbnails() {
@@ -365,6 +416,7 @@
                 const checkbox = document.createElement('input');
                 checkbox.type = 'checkbox';
                 checkbox.className = 'page-checkbox';
+                checkbox.value = i;
                 checkbox.onchange = (e) => {
                     e.stopPropagation();
                     togglePageSelection(i, checkbox.checked);
@@ -374,41 +426,42 @@
                 pageDiv.onclick = () => selectPage(i, pageDiv);
                 pageList.appendChild(pageDiv);
                 
-                // 渲染缩略图
-                const page = await pdfDoc.getPage(i);
-                const viewport = page.getViewport({ scale: 0.2 });
-                canvas.width = viewport.width;
-                canvas.height = viewport.height;
-                
-                const renderContext = {
-                    canvasContext: canvas.getContext('2d'),
-                    viewport: viewport
-                };
-                
-                await page.render(renderContext).promise;
+                try {
+                    // 渲染缩略图
+                    const page = await pdfDoc.getPage(i);
+                    const viewport = page.getViewport({ scale: 0.2 });
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
+                    
+                    const renderContext = {
+                        canvasContext: canvas.getContext('2d'),
+                        viewport: viewport
+                    };
+                    
+                    await page.render(renderContext).promise;
+                } catch (error) {
+                    console.error(`渲染第${i}页缩略图失败:`, error);
+                }
             }
         }
 
         function selectPage(pageNum, element) {
-            // 移除其他页面的选中状态
-            document.querySelectorAll('.page-thumbnail').forEach(el => {
-                el.classList.remove('selected-page');
-            });
-            
-            // 添加当前页面的选中状态
-            element.classList.add('selected-page');
-            currentPage = pageNum;
-            
-            // 更新预览
-            if (pdfViewer) {
-                pdfViewer.src = `/preview/${currentFile}#page=${pageNum}`;
-            }
+            // 切换当前页面的选中状态
+            element.classList.toggle('selected-page');
             
             // 切换复选框状态
             const checkbox = element.querySelector('.page-checkbox');
             if (checkbox) {
                 checkbox.checked = !checkbox.checked;
                 togglePageSelection(pageNum, checkbox.checked);
+            }
+            
+            // 更新当前页面
+            currentPage = pageNum;
+            
+            // 更新预览
+            if (pdfViewer) {
+                pdfViewer.src = `/pdf/file/${currentPDF}#page=${pageNum}`;
             }
         }
 
@@ -418,40 +471,47 @@
             } else {
                 selectedPages.delete(pageNum);
             }
+            console.log('当前选中的页面:', Array.from(selectedPages));
         }
 
         async function rotateSelectedPage() {
-            if (!currentFile) {
-                alert('请先上传PDF文件');
+            if (!currentPDF) {
+                showMessage('请先上传PDF文件', 'warning');
                 return;
             }
-
+            
             if (selectedPages.size === 0) {
-                alert('请选择要旋转的页面');
+                showMessage('请选择要旋转的页面', 'warning');
                 return;
             }
-
+            
             const angle = document.getElementById('rotateAngle').value;
             
             try {
                 showLoading();
-                const response = await fetch('/process', {
+                const response = await fetch('/pdf/rotate', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        operation: 'rotate',
-                        filename: currentFile,
+                        filename: currentPDF,
                         angle: parseInt(angle),
                         pages: Array.from(selectedPages)
                     })
                 });
                 
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || '旋转失败');
+                }
+                
                 const data = await response.json();
                 if (data.success) {
-                    currentFile = data.filename;
-                    await loadPDF(data.filename);
+                    showMessage('PDF旋转成功', 'success');
+                    currentPDF = data.filename;
+                    // 刷新PDF视图
+                    await refreshPDFView();
                     // 清除选择状态
                     selectedPages.clear();
                     // 清除所有复选框的选中状态
@@ -463,23 +523,37 @@
                         el.classList.remove('selected-page');
                     });
                 } else {
-                    alert(data.error);
+                    throw new Error(data.error || '旋转失败');
                 }
             } catch (error) {
-                alert('操作失败：' + error.message);
+                console.error('旋转失败:', error);
+                showMessage(error.message || '旋转失败，请重试', 'danger');
             } finally {
                 hideLoading();
             }
         }
 
+        function updatePDFPreview(filename) {
+            const previewContainer = document.getElementById('pdfPreview');
+            previewContainer.innerHTML = '';
+            
+            const iframe = document.createElement('iframe');
+            iframe.src = `/pdf/file/${filename}`;
+            iframe.style.width = '100%';
+            iframe.style.height = '100%';
+            iframe.style.border = 'none';
+            
+            previewContainer.appendChild(iframe);
+        }
+
         async function deleteSelectedPages() {
-            if (!currentFile) {
-                alert('请先上传PDF文件');
+            if (!currentPDF) {
+                showMessage('请先上传PDF文件', 'warning');
                 return;
             }
 
             if (selectedPages.size === 0) {
-                alert('请选择要删除的页面');
+                showMessage('请选择要删除的页面', 'warning');
                 return;
             }
 
@@ -489,69 +563,115 @@
 
             try {
                 showLoading();
-                const response = await fetch('/process', {
+                const response = await fetch('/pdf/delete', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        operation: 'delete',
-                        filename: currentFile,
+                        filename: currentPDF,
                         pages: Array.from(selectedPages)
                     })
                 });
                 
-                const data = await response.json();
-                if (data.success) {
-                    currentFile = data.filename;
-                    await loadPDF(data.filename);
-                    selectedPages.clear();
+                let data;
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    data = await response.json();
                 } else {
-                    alert(data.error);
+                    throw new Error('服务器返回了非JSON格式的响应');
+                }
+                
+                if (!response.ok) {
+                    throw new Error(data.error || '删除失败');
+                }
+                
+                if (data.success) {
+                    showMessage('页面删除成功', 'success');
+                    currentPDF = data.filename;
+                    // 刷新PDF视图
+                    await refreshPDFView();
+                    // 清除选择状态
+                    selectedPages.clear();
+                    // 清除所有复选框的选中状态
+                    document.querySelectorAll('.page-checkbox').forEach(checkbox => {
+                        checkbox.checked = false;
+                    });
+                    // 移除所有页面的选中样式
+                    document.querySelectorAll('.page-thumbnail').forEach(el => {
+                        el.classList.remove('selected-page');
+                    });
+                } else {
+                    throw new Error(data.error || '删除失败');
                 }
             } catch (error) {
-                alert('操作失败：' + error.message);
+                console.error('删除失败:', error);
+                showMessage(error.message || '删除失败，请重试', 'danger');
             } finally {
                 hideLoading();
             }
         }
 
         async function saveChanges() {
-            if (!currentFile) {
-                alert('请先上传PDF文件');
+            if (!currentPDF) {
+                showMessage('请先上传PDF文件', 'warning');
                 return;
             }
 
-            const pageOrder = Array.from(document.querySelectorAll('.page-thumbnail')).map(
-                (el, index) => parseInt(el.querySelector('.page-number').textContent)
-            );
-
             try {
                 showLoading();
-                const response = await fetch('/process', {
+                const response = await fetch('/pdf/save', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        operation: 'reorder',
-                        filename: currentFile,
-                        new_order: pageOrder
+                        filename: currentPDF
                     })
                 });
                 
-                const data = await response.json();
-                if (data.success) {
-                    window.location.href = `/download/${data.filename}`;
+                let data;
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    data = await response.json();
                 } else {
-                    alert(data.error);
+                    throw new Error('服务器返回了非JSON格式的响应');
+                }
+                
+                if (!response.ok) {
+                    throw new Error(data.error || '保存失败');
+                }
+                
+                if (data.success) {
+                    showMessage('保存成功', 'success');
+                    // 下载文件
+                    window.open(`/pdf/file/${data.filename}`, '_blank');
+                   //window.location.href = `/pdf/file/${data.filename}`;
+                } else {
+                    throw new Error(data.error || '保存失败');
                 }
             } catch (error) {
-                alert('保存失败：' + error.message);
+                console.error('保存失败:', error);
+                showMessage(error.message || '保存失败，请重试', 'danger');
             } finally {
                 hideLoading();
             }
         }
+
+        // 移除自动刷新相关代码
+        document.addEventListener('DOMContentLoaded', function() {
+            // 添加页面选择功能
+            document.getElementById('pageList').addEventListener('change', function(e) {
+                if (e.target.type === 'checkbox') {
+                    const pageId = e.target.value;
+                    if (e.target.checked) {
+                        selectedPages.add(pageId);
+                    } else {
+                        selectedPages.delete(pageId);
+                    }
+                }
+            });
+        });
     </script>
 </body>
 </html> 
