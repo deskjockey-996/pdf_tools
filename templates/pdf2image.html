@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF转图片工具 - PDF工具大全</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='ico.jpeg') }}">
+    <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/all.min.css') }}" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .container-fluid {
+            flex: 1;
+        }
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        .card-header {
+            background-color: #007bff;
+            color: white;
+            border-radius: 15px 15px 0 0 !important;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            border: none;
+            padding: 10px 20px;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+        .form-control {
+            border-radius: 10px;
+        }
+        .alert {
+            border-radius: 10px;
+        }
+        .back-button {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <a href="/" class="btn btn-light back-button">
+        <i class="fas fa-arrow-left"></i> 返回首页
+    </a>
+
+    <div class="container-fluid py-4">
+        <h1 class="text-center mb-4">PDF转图片工具</h1>
+        
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-file-image me-2"></i>PDF转图片</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="pdf2imageForm" enctype="multipart/form-data">
+                            <div class="mb-4">
+                                <label for="pdfFiles" class="form-label">选择PDF文件（可多选）</label>
+                                <input type="file" class="form-control" id="pdfFiles" name="pdfFiles" accept=".pdf" multiple required>
+                                <div class="form-text">支持多个PDF文件同时转换</div>
+                            </div>
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <label for="imageFormat" class="form-label">选择图片格式</label>
+                                    <select class="form-select" id="imageFormat" name="imageFormat">
+                                        <option value="png">PNG</option>
+                                        <option value="jpg">JPG</option>
+                                        <option value="jpeg">JPEG</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="dpi" class="form-label">DPI设置</label>
+                                    <select class="form-select" id="dpi" name="dpi">
+                                        <option value="200">200 DPI</option>
+                                        <option value="300" selected>300 DPI</option>
+                                        <option value="400">400 DPI</option>
+                                        <option value="600">600 DPI</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="text-center">
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-file-image me-2"></i>开始转换
+                                </button>
+                            </div>
+                        </form>
+                        <div id="progress" class="mt-4" style="display: none;">
+                            <div class="progress mb-3">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                            </div>
+                            <div id="progressDetails" class="alert alert-info" style="display: none;">
+                                <h6 class="mb-2">转换进度：</h6>
+                                <div id="fileProgress" class="mb-2"></div>
+                                <div id="currentFile" class="small"></div>
+                            </div>
+                            <p class="text-center mt-2" id="progressText">正在转换...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+    <script>
+    document.getElementById('pdf2imageForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const progress = document.getElementById('progress');
+        const progressBar = progress.querySelector('.progress-bar');
+        const progressText = document.getElementById('progressText');
+        const progressDetails = document.getElementById('progressDetails');
+        const fileProgress = document.getElementById('fileProgress');
+        const currentFile = document.getElementById('currentFile');
+        
+        progress.style.display = 'block';
+        progressDetails.style.display = 'block';
+        progressBar.style.width = '0%';
+        progressText.textContent = '正在转换...';
+        
+        // 获取所有选中的文件
+        const files = document.getElementById('pdfFiles').files;
+        fileProgress.innerHTML = '';
+        
+        // 为每个文件创建进度项
+        for (let file of files) {
+            const fileItem = document.createElement('div');
+            fileItem.className = 'mb-1';
+            fileItem.id = `file-${file.name}`;
+            fileItem.innerHTML = `
+                <i class="fas fa-file-pdf text-danger me-2"></i>
+                ${file.name}
+                <span class="badge bg-secondary ms-2">待转换</span>
+            `;
+            fileProgress.appendChild(fileItem);
+        }
+        
+        try {
+            const response = await fetch('/pdf2image', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'converted_images.zip';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                // 更新所有文件状态为已完成
+                for (let file of files) {
+                    const fileItem = document.getElementById(`file-${file.name}`);
+                    if (fileItem) {
+                        const badge = fileItem.querySelector('.badge');
+                        badge.className = 'badge bg-success ms-2';
+                        badge.textContent = '已完成';
+                    }
+                }
+                
+                progressBar.style.width = '100%';
+                progressText.textContent = '转换完成！';
+                progressBar.classList.remove('bg-danger');
+                progressBar.classList.add('bg-success');
+            } else {
+                throw new Error('转换失败');
+            }
+        } catch (error) {
+            progressText.textContent = '转换失败：' + error.message;
+            progressBar.classList.add('bg-danger');
+            
+            // 更新所有文件状态为失败
+            for (let file of files) {
+                const fileItem = document.getElementById(`file-${file.name}`);
+                if (fileItem) {
+                    const badge = fileItem.querySelector('.badge');
+                    badge.className = 'badge bg-danger ms-2';
+                    badge.textContent = '转换失败';
+                }
+            }
+        }
+    });
+
+    // 添加文件选择时的预览
+    document.getElementById('pdfFiles').addEventListener('change', function(e) {
+        const files = e.target.files;
+        const fileProgress = document.getElementById('fileProgress');
+        fileProgress.innerHTML = '';
+        
+        for (let file of files) {
+            const fileItem = document.createElement('div');
+            fileItem.className = 'mb-1';
+            fileItem.id = `file-${file.name}`;
+            fileItem.innerHTML = `
+                <i class="fas fa-file-pdf text-danger me-2"></i>
+                ${file.name}
+                <span class="badge bg-secondary ms-2">待转换</span>
+            `;
+            fileProgress.appendChild(fileItem);
+        }
+    });
+    </script>
+</body>
+</html> 

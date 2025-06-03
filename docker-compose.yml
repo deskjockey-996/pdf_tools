@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  pdf-tool:
+    image: ghcr.io/deskjockey-996/pdf_tools:latest
+    container_name: pdf-tool
+    ports:
+      - "8000:8000"
+    environment:
+      - FLASK_ENV=production
+    restart: unless-stopped

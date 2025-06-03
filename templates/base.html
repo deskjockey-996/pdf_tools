@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}PDF工具大全{% endblock %}</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='ico.jpeg') }}">
+    <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/all.min.css') }}" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .navbar {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        }
+        .navbar-brand {
+            color: white !important;
+            font-weight: bold;
+        }
+        .nav-link {
+            color: rgba(255, 255, 255, 0.9) !important;
+        }
+        .nav-link:hover {
+            color: white !important;
+        }
+        .content {
+            flex: 1;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 1rem 0;
+            margin-top: auto;
+        }
+    </style>
+    {% block styles %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark mb-4">
+        <div class="container">
+            <a class="navbar-brand" href="/">PDF工具大全</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/rotate">PDF旋转</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/image2pdf">图片转PDF</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/pdf2image">PDF转图片</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="content">
+        {% block content %}{% endblock %}
+    </div>
+
+    {% include 'footer.html' %}
+
+    <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html> 

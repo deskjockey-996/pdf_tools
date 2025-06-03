@@ -1,6 +1,7 @@
 from flask import Flask, render_template
 from routes import rotate_bp, image2pdf_bp
 from routes.pdf_rotate import pdf_rotate_bp
+from routes.pdf2image import pdf2image_bp
 import os
 
 app = Flask(__name__)
@@ -12,12 +13,12 @@ app.secret_key = 'your-secret-key'  # 在生产环境中应该使用更安全的
 app.register_blueprint(rotate_bp)
 app.register_blueprint(image2pdf_bp)
 app.register_blueprint(pdf_rotate_bp)
+app.register_blueprint(pdf2image_bp)
 
 # 确保上传目录存在
 os.makedirs('uploads', exist_ok=True)
 os.makedirs('uploads/pdf', exist_ok=True)
 os.makedirs('uploads/pics', exist_ok=True)
-
 
 @app.route('/')
 def index():

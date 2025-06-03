@@ -14,6 +14,13 @@
   - 页面拖拽排序
   - 选择性删除页面
 
+- **PDF转图片工具**
+  - 支持PNG、JPG、JPEG格式
+  - 支持多文件批量转换
+  - 可调节DPI（200-600）
+  - 自动打包下载
+  - 按原PDF文件名分类存储
+
 ### 即将推出功能
 - PDF合并工具
 - PDF压缩工具
@@ -126,3 +133,57 @@ pdf_tools/
 ---
 
 *注：本项目仍在积极开发中，欢迎提供建议和反馈。* 
+
+
+
+# PDF 工具应用
+
+## 系统要求
+- Docker 20.10+
+- Docker Compose 1.29+
+
+## 快速启动
+```bash
+# 下载 docker-compose 配置文件
+curl -O https://raw.githubusercontent.com/deskjockey-996/pdf_tools/main/docker-compose.yml
+
+# 启动应用
+docker-compose up -d
+
+# 停止应用
+docker-compose down
+```
+
+## 访问应用
+打开浏览器访问：http://localhost:8000
+
+## 配置选项
+创建 `.env` 文件自定义配置：
+```ini
+# Flask 配置
+FLASK_DEBUG=0
+PORT=8000
+
+
+```
+
+## 高级用法
+### 使用特定版本
+```yaml
+# 修改 docker-compose.yml
+image: ghcr.io/你的GitHub用户名/pdf_tools:v1.2
+```
+
+### 查看日志
+```bash
+docker logs pdf-tool -f
+```
+
+### 进入容器
+```bash
+docker exec -it pdf-tool /bin/bash
+```
+
+## 技术支持
+遇到问题请提交 issue：  
+https://github.com/你的GitHub用户名/pdf_tools/issues
