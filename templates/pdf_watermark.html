@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF水印工具 - PDF工具大全</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='ico.jpeg') }}">
+    <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/all.min.css') }}" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .container-fluid {
+            flex: 1;
+        }
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        .card-header {
+            background-color: #007bff;
+            color: white;
+            border-radius: 15px 15px 0 0 !important;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            border: none;
+            padding: 10px 20px;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+        .form-control {
+            border-radius: 10px;
+        }
+        .alert {
+            border-radius: 10px;
+        }
+        .back-button {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+        }
+        .pdf-preview {
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 20px;
+            min-height: 80vh;
+            position: relative;
+            background-color: #fff;
+        }
+        .pdf-preview iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        .preview-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #6c757d;
+        }
+        .preview-placeholder i {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+        .form-label {
+            font-weight: 500;
+            color: #495057;
+        }
+        .btn-group .btn {
+            border-radius: 10px;
+        }
+        .form-range::-webkit-slider-thumb {
+            background: #007bff;
+        }
+        .form-range::-moz-range-thumb {
+            background: #007bff;
+        }
+        .form-control-color {
+            width: 100%;
+            height: 38px;
+            padding: 0.375rem;
+        }
+    </style>
+</head>
+<body>
+    <a href="/" class="btn btn-light back-button">
+        <i class="fas fa-arrow-left"></i> 返回首页
+    </a>
+
+    <div class="container-fluid py-4">
+        <h1 class="text-center mb-4">PDF水印工具</h1>
+        
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="row">
+            <!-- 左侧设置面板 -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-stamp me-2"></i>水印设置</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="watermarkForm" method="post" enctype="multipart/form-data">
+                            <div class="mb-4">
+                                <label for="pdfFiles" class="form-label">选择 PDF 文件</label>
+                                <input type="file" class="form-control" id="pdfFiles" name="pdfFiles" accept=".pdf" multiple required>
+                                <div class="form-text">支持多个 PDF 文件同时添加水印</div>
+                            </div>
+                            
+                            <!-- <div class="mb-4">
+                                <label class="form-label">水印类型</label>
+                                <div class="btn-group w-100" role="group">
+                                    <input type="radio" class="btn-check" name="watermarkType" id="textWatermark" value="text" checked>
+                                    <label class="btn btn-outline-primary" for="textWatermark">文字水印</label>
+                                    
+                                    <input type="radio" class="btn-check" name="watermarkType" id="imageWatermark" value="image">
+                                    <label class="btn btn-outline-primary" for="imageWatermark">图片水印</label>
+                                </div>
+                            </div> -->
+                            
+                            <div id="textWatermarkOptions" class="mb-4">
+                                <div class="mb-3">
+                                    <label for="watermarkText" class="form-label">水印文字</label>
+                                    <input type="text" class="form-control" id="watermarkText" name="watermarkText" value="水印文字">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="fontSize" class="form-label">字体大小</label>
+                                    <input type="number" class="form-control" id="fontSize" name="fontSize" value="36" min="12" max="72">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="color" class="form-label">水印颜色</label>
+                                    <input type="color" class="form-control form-control-color" id="color" name="color" value="#000000">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="rotation" class="form-label">旋转角度</label>
+                                    <input type="range" class="form-range" id="rotation" name="rotation" min="-180" max="180" value="30">
+                                    <div class="text-center" id="rotationValue">30°</div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="isTiled" name="isTiled" value="true">
+                                        <label class="form-check-label" for="isTiled">平铺整个页面</label>
+                                    </div>
+                                </div>
+                                <div class="row mb-3" id="tiledSpacingOptions" style="display:none;">
+                                    <div class="col">
+                                        <label for="tiledSpacingX" class="form-label">横向间距倍数</label>
+                                        <input type="number" class="form-control" id="tiledSpacingX" name="tiledSpacingX" value="2.5" min="0.5" max="5" step="0.1">
+                                    </div>
+                                    <div class="col">
+                                        <label for="tiledSpacingY" class="form-label">纵向间距倍数</label>
+                                        <input type="number" class="form-control" id="tiledSpacingY" name="tiledSpacingY" value="2" min="0.5" max="5" step="0.1">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div id="imageWatermarkOptions" class="mb-4" style="display: none;">
+                                <div class="mb-3">
+                                    <label for="watermarkImage" class="form-label">选择水印图片</label>
+                                    <input type="file" class="form-control" id="watermarkImage" name="watermarkImage" accept="image/*">
+                                    <div class="form-text">支持 PNG、JPG 等格式的图片</div>
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <label for="position" class="form-label">水印位置</label>
+                                    <select class="form-select" id="position" name="position">
+                                        <option value="center">居中</option>
+                                        <option value="top-left">左上角</option>
+                                        <option value="top-right">右上角</option>
+                                        <option value="bottom-left">左下角</option>
+                                        <option value="bottom-right">右下角</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <label for="opacity" class="form-label">透明度</label>
+                                    <input type="range" class="form-range" id="opacity" name="opacity" min="0" max="1" step="0.1" value="0.1">
+                                    <div class="text-center" id="opacityValue">10%</div>
+                                </div>
+                            </div>
+                            
+                            <div class="text-center">
+                                <button type="button" class="btn btn-primary btn-lg" id="previewBtn">
+                                    <i class="fas fa-eye me-2"></i>预览效果
+                                </button>
+                                <button type="submit" class="btn btn-success btn-lg ms-2" id="submitBtn" style="display: none;">
+                                    <i class="fas fa-download me-2"></i>保存并下载
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 右侧预览面板 -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-eye me-2"></i>PDF 预览</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="pdfPreview" class="pdf-preview">
+                            <div class="preview-placeholder">
+                                <i class="fas fa-file-pdf"></i>
+                                <p>请选择 PDF 文件并设置水印参数</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+    <script>
+    // 水印类型切换
+    document.querySelectorAll('input[name="watermarkType"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            const textOptions = document.getElementById('textWatermarkOptions');
+            const imageOptions = document.getElementById('imageWatermarkOptions');
+            const previewContent = document.getElementById('previewContent');
+            
+            if (this.value === 'text') {
+                textOptions.style.display = 'block';
+                imageOptions.style.display = 'none';
+                previewContent.innerHTML = document.getElementById('watermarkText').value;
+                previewContent.style.display = 'block';
+            } else {
+                textOptions.style.display = 'none';
+                imageOptions.style.display = 'block';
+                previewContent.style.display = 'none';
+            }
+        });
+    });
+    
+    // 透明度滑块
+    document.getElementById('opacity').addEventListener('input', function() {
+        const value = this.value;
+        document.getElementById('opacityValue').textContent = Math.round(value * 100) + '%';
+        document.getElementById('previewContent').style.opacity = value;
+    });
+    
+    // 水印文字输入
+    document.getElementById('watermarkText').addEventListener('input', function() {
+        document.getElementById('previewContent').textContent = this.value;
+    });
+    
+    // 字体大小
+    document.getElementById('fontSize').addEventListener('input', function() {
+        document.getElementById('previewContent').style.fontSize = this.value + 'px';
+    });
+    
+    // 水印位置
+    document.getElementById('position').addEventListener('change', function() {
+        const previewContent = document.getElementById('previewContent');
+        previewContent.style.position = 'absolute';
+        
+        switch(this.value) {
+            case 'center':
+                previewContent.style.top = '50%';
+                previewContent.style.left = '50%';
+                previewContent.style.transform = 'translate(-50%, -50%)';
+                break;
+            case 'top-left':
+                previewContent.style.top = '20px';
+                previewContent.style.left = '20px';
+                previewContent.style.transform = 'none';
+                break;
+            case 'top-right':
+                previewContent.style.top = '20px';
+                previewContent.style.right = '20px';
+                previewContent.style.left = 'auto';
+                previewContent.style.transform = 'none';
+                break;
+            case 'bottom-left':
+                previewContent.style.bottom = '20px';
+                previewContent.style.left = '20px';
+                previewContent.style.top = 'auto';
+                previewContent.style.transform = 'none';
+                break;
+            case 'bottom-right':
+                previewContent.style.bottom = '20px';
+                previewContent.style.right = '20px';
+                previewContent.style.left = 'auto';
+                previewContent.style.top = 'auto';
+                previewContent.style.transform = 'none';
+                break;
+        }
+    });
+    
+    // 图片水印预览
+    document.getElementById('watermarkImage').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const previewContent = document.getElementById('previewContent');
+                previewContent.innerHTML = `<img src="${e.target.result}" style="max-width: 100%; max-height: 200px;">`;
+                previewContent.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+    
+    // 旋转角度滑块
+    document.getElementById('rotation').addEventListener('input', function() {
+        const value = this.value;
+        document.getElementById('rotationValue').textContent = value + '°';
+        document.getElementById('previewContent').style.transform = `rotate(${value}deg)`;
+    });
+    
+    // 颜色选择
+    document.getElementById('color').addEventListener('input', function() {
+        document.getElementById('previewContent').style.color = this.value;
+    });
+    
+    // 平铺选项
+    document.getElementById('isTiled').addEventListener('change', function() {
+        const tiledSpacingOptions = document.getElementById('tiledSpacingOptions');
+        if (this.checked) {
+            tiledSpacingOptions.style.display = 'flex';
+        } else {
+            tiledSpacingOptions.style.display = 'none';
+        }
+        if (typeof updatePreview === 'function') updatePreview();
+    });
+    
+    // 初始化时根据checkbox状态显示/隐藏
+    window.addEventListener('DOMContentLoaded', function() {
+        const tiledSpacingOptions = document.getElementById('tiledSpacingOptions');
+        const isTiled = document.getElementById('isTiled');
+        if (isTiled.checked) {
+            tiledSpacingOptions.style.display = 'flex';
+        } else {
+            tiledSpacingOptions.style.display = 'none';
+        }
+    });
+    
+    // 实时预览时也要监听间距输入框
+    document.getElementById('tiledSpacingX').addEventListener('input', function() {
+        if (typeof updatePreview === 'function') updatePreview();
+    });
+    document.getElementById('tiledSpacingY').addEventListener('input', function() {
+        if (typeof updatePreview === 'function') updatePreview();
+    });
+    
+    // 预览按钮点击事件
+    document.getElementById('previewBtn').addEventListener('click', async function() {
+        const formData = new FormData(document.getElementById('watermarkForm'));
+        formData.append('preview', 'true');
+        
+        try {
+            const response = await fetch('/pdf_watermark', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                
+                // 更新预览区域
+                const previewDiv = document.getElementById('pdfPreview');
+                previewDiv.innerHTML = `
+                    <iframe src="${url}" class="w-100" style="height: 80vh; border: none;"></iframe>
+                `;
+                
+                // 显示保存按钮
+                document.getElementById('submitBtn').style.display = 'inline-block';
+            } else {
+                throw new Error('预览失败');
+            }
+        } catch (error) {
+            alert('预览失败：' + error.message);
+        }
+    });
+    
+    // 实时更新预览
+    const updatePreview = debounce(() => {
+        if (document.getElementById('pdfFiles').files.length > 0) {
+            document.getElementById('previewBtn').click();
+        }
+    }, 500);
+    
+    // 添加事件监听器
+    document.getElementById('watermarkText').addEventListener('input', updatePreview);
+    document.getElementById('fontSize').addEventListener('input', updatePreview);
+    document.getElementById('color').addEventListener('input', updatePreview);
+    document.getElementById('rotation').addEventListener('input', updatePreview);
+    document.getElementById('isTiled').addEventListener('change', updatePreview);
+    document.getElementById('opacity').addEventListener('input', updatePreview);
+    document.getElementById('position').addEventListener('change', updatePreview);
+    document.getElementById('watermarkImage').addEventListener('change', updatePreview);
+    
+    // 防抖函数
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+    </script>
+</body>
+</html> 
