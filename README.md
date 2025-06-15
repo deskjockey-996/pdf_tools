@@ -1,8 +1,52 @@
 # PDF工具大全
 
-[![Version](https://img.shields.io/badge/version-1.1.1-blue.svg)](https://github.com/deskjockey-996/pdf_tools/releases/tag/v1.1.1)
+本项目为一站式PDF处理工具，支持多种常用PDF操作，界面简洁，操作便捷。
 
-一个功能强大的在线PDF处理工具集合，提供多种实用的PDF处理功能。
+## 主要功能
+
+1. **PDF旋转工具**
+   - 支持对PDF文件的单页或多页进行任意角度旋转。
+   - 可批量旋转，支持预览和保存。
+
+2. **图片转PDF工具**
+   - 支持多张图片（JPG/PNG等）一键合成为PDF文件。
+   - 可自定义图片顺序，支持预览和下载。
+
+3. **PDF转图片工具**
+   - 将PDF文件的每一页导出为高质量图片（JPG/PNG）。
+   - 支持批量下载所有图片。
+
+4. **PDF水印工具**
+   - 可为PDF文件添加文字水印。
+   - 支持自定义水印内容、字体、颜色、透明度、位置和旋转角度。
+
+5. **PDF合并工具**
+   - 支持多PDF文件合并，页面可自定义顺序。
+   - 支持页面删除、旋转、拖拽排序，合并后可直接预览和下载。
+
+---
+
+## 使用方法
+
+1. 克隆本项目到本地：
+   ```bash
+   git clone <your-repo-url>
+   ```
+2. 安装依赖：
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. 启动服务：
+   ```bash
+   python app.py
+   ```
+4. 浏览器访问 `http://localhost:8000`，即可使用全部功能。
+
+---
+
+## 反馈与建议
+
+如有问题或建议，欢迎提issue或联系作者。
 
 ## 🌟 功能特点
 
@@ -85,14 +129,45 @@ http://localhost:5000
 ## 📁 项目结构
 
 ```
-pdf_tools/
-├── app.py              # 主应用文件
-├── requirements.txt    # 项目依赖
-├── templates/         # HTML模板
-│   ├── index.html    # 首页
-│   └── rotate.html   # 旋转工具页面
-└── uploads/          # 上传文件存储目录
+.
+├── app.py                  # 主程序入口
+├── requirements.txt        # Python依赖
+├── README.md               # 项目说明文档
+├── Dockerfile              # Docker 构建文件
+├── docker-compose.yml      # Docker Compose 配置
+├── download_fonts.py       # 字体下载脚本
+├── static/                 # 静态资源（CSS/JS/字体/图片等）
+│   ├── css/
+│   ├── js/
+│   ├── fonts/
+│   ├── webfonts/
+│   └── ico.jpeg
+├── templates/              # 前端页面模板
+│   ├── index.html
+│   ├── pdf_merge.html
+│   ├── pdf_watermark.html
+│   ├── pdf2image.html
+│   ├── image2pdf.html
+│   ├── rotate.html
+│   └── footer.html
+├── routes/                 # 各功能模块后端路由
+│   ├── __init__.py
+│   ├── pdf_merge.py
+│   ├── pdf_watermark.py
+│   ├── pdf2image.py
+│   ├── image2pdf.py
+│   ├── rotate.py
+│   └── pdf_rotate.py
+├── uploads/                # 上传及临时文件目录
+└── .gitignore
 ```
+
+- `app.py`：主入口，注册各功能路由。
+- `routes/`：每个PDF工具的后端逻辑。
+- `templates/`：每个工具对应的前端页面。
+- `static/`：静态资源（样式、脚本、字体等）。
+- `uploads/`：用户上传和处理过程中的临时文件。
+- 其它为依赖、配置及说明文件。
 
 ## 🔒 安全说明
 
