@@ -91,7 +91,7 @@ python app.py
 
 4. 在浏览器中访问
 ```
-http://localhost:5000
+http://localhost:8000
 ```
 
 ## 💻 使用说明

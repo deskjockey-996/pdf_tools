@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF拆分工具 - PDF工具大全</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='ico.jpeg') }}">
+    <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/all.min.css') }}" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .container-fluid {
+            flex: 1;
+        }
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            height: calc(100vh - 100px);
+            display: flex;
+            flex-direction: column;
+        }
+        .card-header {
+            background-color: #007bff;
+            color: white;
+            border-radius: 15px 15px 0 0 !important;
+            flex-shrink: 0;
+        }
+        .card-body {
+            flex: 1;
+            overflow: hidden;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            border: none;
+            padding: 10px 20px;
+            min-width: 140px;
+            font-size: 1.1rem;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+        .form-control {
+            border-radius: 10px;
+        }
+        .alert {
+            border-radius: 10px;
+        }
+        .pdf-preview {
+            width: 100%;
+            height: calc(100% - 10px);
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .pdf-preview iframe, .pdf-preview img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+            object-fit: contain;
+        }
+        .thumbnail-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            min-height: 0;
+        }
+        .page-thumbnail {
+            width: 100%;
+            height: 140px;
+            border: 1px solid #ddd;
+            margin-bottom: 10px;
+            cursor: pointer;
+            position: relative;
+            background: #fff;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .page-thumbnail.selected-page {
+            border: 2px solid #007bff;
+            transform: scale(1.05);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .page-thumbnail img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            display: block;
+            margin: auto;
+        }
+        .page-number {
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+        .operation-panel {
+            background: #fff;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px;
+            flex-shrink: 0;
+        }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            display: none;
+        }
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+        }
+        .back-button {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+        }
+        .row {
+            min-height: 400px;
+            height: auto;
+        }
+        .preview-section {
+            display: flex;
+            flex-direction: column;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <a href="/" class="btn btn-light back-button">
+        <i class="fas fa-arrow-left"></i> 返回首页
+    </a>
+
+    <div class="container-fluid py-4">
+        <h1 class="text-center mb-4">PDF拆分工具</h1>
+        <div class="row">
+            <!-- 文件选择面板 -->
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-file-pdf me-2"></i>选择PDF文件</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="operation-panel">
+                            <input type="file" class="form-control" id="pdfFile" accept=".pdf">
+                        </div>
+                        <div class="operation-panel">
+                            <label class="form-label">选择拆分方式</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="splitType" id="splitAll" value="all" checked>
+                                <label class="form-check-label" for="splitAll">拆分所有页面</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="splitType" id="splitRange" value="range">
+                                <label class="form-check-label" for="splitRange">自定义范围</label>
+                            </div>
+                            <div id="rangeInput" class="mt-2" style="display: none;">
+                                <input type="text" class="form-control" id="pageRange" placeholder="例如：1-3,5,7-9">
+                                <small class="form-text text-muted">请输入页码范围，用逗号分隔，支持范围（如：1-3）</small>
+                            </div>
+                        </div>
+                        <div class="operation-panel text-center">
+                            <button class="btn btn-primary" id="splitButton">
+                                <i class="fas fa-cut me-2"></i>开始拆分
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- 预览和缩略图面板 -->
+            <div class="col-md-9 preview-section" id="previewSection">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-eye me-2"></i>预览和选择页面</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <!-- 缩略图面板 -->
+                            <div class="col-md-3">
+                                <div class="thumbnail-container" id="thumbnailContainer">
+                                    <!-- 缩略图将在这里动态生成 -->
+                                </div>
+                            </div>
+                            <!-- 预览面板 -->
+                            <div class="col-md-9">
+                                <div class="pdf-preview" id="pdfPreview">
+                                    <div class="text-center text-muted" id="previewPlaceholder">
+                                        <i class="fas fa-file-pdf fa-3x mb-3"></i>
+                                        <p>选择页面以预览</p>
+                                    </div>
+                                </div>
+                                <div class="operation-panel text-center">
+                                    <button class="btn btn-primary" id="saveBtn" disabled>
+                                        <i class="fas fa-save me-2"></i>保存拆分结果
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- 加载遮罩 -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">加载中...</span>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+    <script>
+        let currentFile = null;
+        let thumbnails = [];
+        let selectedPages = [];
+        const pdfFileInput = document.getElementById('pdfFile');
+        const splitTypeRadios = document.getElementsByName('splitType');
+        const rangeInput = document.getElementById('rangeInput');
+        const pageRangeInput = document.getElementById('pageRange');
+        const splitButton = document.getElementById('splitButton');
+        const thumbnailContainer = document.getElementById('thumbnailContainer');
+        const pdfPreview = document.getElementById('pdfPreview');
+        const previewPlaceholder = document.getElementById('previewPlaceholder');
+        const saveBtn = document.getElementById('saveBtn');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+
+        // 监听拆分方式选择
+        splitTypeRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                rangeInput.style.display = this.value === 'range' ? 'block' : 'none';
+            });
+        });
+
+        // 处理拆分按钮点击
+        splitButton.addEventListener('click', async function() {
+            const file = pdfFileInput.files[0];
+            if (!file) {
+                alert('请选择PDF文件');
+                return;
+            }
+            let splitType = document.querySelector('input[name="splitType"]:checked').value;
+            let pageRange = pageRangeInput.value;
+            loadingOverlay.style.display = 'flex';
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('splitType', splitType);
+            formData.append('pageRange', pageRange);
+            try {
+                const response = await fetch('/pdf_split/preview', {
+                    method: 'POST',
+                    body: formData
+                });
+                if (!response.ok) {
+                    throw new Error('上传失败');
+                }
+                const data = await response.json();
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                thumbnails = data.thumbnails;
+                renderThumbnails();
+                saveBtn.disabled = false;
+            } catch (error) {
+                alert(error.message || '处理失败');
+            } finally {
+                loadingOverlay.style.display = 'none';
+            }
+        });
+
+        // 渲染缩略图（多选）
+        function renderThumbnails() {
+            thumbnailContainer.innerHTML = '';
+            selectedPages = [];
+            thumbnails.forEach((thumbnail, index) => {
+                const div = document.createElement('div');
+                div.className = 'page-thumbnail';
+                div.innerHTML = `
+                    <input type="checkbox" class="form-check-input position-absolute m-2" style="top:5px;left:5px;z-index:2;" value="${index}">
+                    <img src="${thumbnail}" alt="Page ${index + 1}">
+                    <div class="page-number">${index + 1}</div>
+                `;
+                // 预览：点击图片部分
+                div.querySelector('img').addEventListener('click', (e) => {
+                    document.querySelectorAll('.page-thumbnail').forEach(item => item.classList.remove('selected-page'));
+                    div.classList.add('selected-page');
+                    pdfPreview.innerHTML = `<img src="${thumbnail}" style="width:100%;height:100%;object-fit:contain;">`;
+                });
+                // 多选逻辑
+                const checkbox = div.querySelector('input[type="checkbox"]');
+                checkbox.addEventListener('change', () => {
+                    updateSelectedPages();
+                });
+                thumbnailContainer.appendChild(div);
+            });
+            // 默认显示第一页
+            if (thumbnails.length > 0) {
+                thumbnailContainer.firstChild.querySelector('img').click();
+            }
+        }
+
+        function updateSelectedPages() {
+            selectedPages = [];
+            document.querySelectorAll('.page-thumbnail input[type="checkbox"]:checked').forEach(cb => {
+                selectedPages.push(parseInt(cb.value));
+            });
+            saveBtn.disabled = selectedPages.length === 0;
+        }
+
+        // 保存拆分结果
+        saveBtn.addEventListener('click', async function() {
+            const file = pdfFileInput.files[0];
+            if (!file) {
+                alert('请选择PDF文件');
+                return;
+            }
+            if (selectedPages.length === 0) {
+                alert('请选择要保存的页面');
+                return;
+            }
+            loadingOverlay.style.display = 'flex';
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('pages', JSON.stringify(selectedPages));
+            formData.append('originalName', file.name);
+            try {
+                const response = await fetch('/pdf_split/split', {
+                    method: 'POST',
+                    body: formData
+                });
+                if (!response.ok) {
+                    throw new Error('保存失败');
+                }
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'split_pages.pdf';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                alert(error.message || '保存失败');
+            } finally {
+                loadingOverlay.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html> 

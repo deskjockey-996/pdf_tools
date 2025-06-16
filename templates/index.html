@@ -112,7 +112,7 @@
                     <div class="card-body text-center">
                         <i class="fas fa-stamp tool-icon"></i>
                         <h5 class="card-title">PDF水印工具</h5>
-                        <p class="card-text">为PDF添加文字或图片水印，支持自定义位置和透明度。</p>
+                        <p class="card-text">为PDF添加文字水印，支持自定义位置和透明度。</p>
                         <a href="/pdf_watermark" class="btn btn-primary">开始使用</a>
                     </div>
                 </div>
@@ -130,29 +130,21 @@
                 </div>
             </div>
 
-            <!-- PDF压缩工具 -->
-            <div class="col-md-4">
-                <div class="card tool-card coming-soon">
-                    <div class="card-body text-center">
-                        <i class="fas fa-compress-alt tool-icon"></i>
-                        <h5 class="card-title">PDF压缩工具</h5>
-                        <p class="card-text">智能压缩PDF文件大小，保持文档质量，支持批量处理。</p>
-                        <button class="btn btn-secondary" disabled>即将推出</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- PDF拆分工具 -->
-            <div class="col-md-4">
-                <div class="card tool-card coming-soon">
+             <!-- PDF拆分工具 -->
+             <div class="col-md-4">
+                <div class="card tool-card">
                     <div class="card-body text-center">
                         <i class="fas fa-cut tool-icon"></i>
                         <h5 class="card-title">PDF拆分工具</h5>
                         <p class="card-text">将PDF文件按页面拆分，支持自定义拆分范围，灵活便捷。</p>
-                        <button class="btn btn-secondary" disabled>即将推出</button>
+                        <a href="/pdf_split" class="btn btn-primary">开始使用</a>
                     </div>
                 </div>
             </div>
+            
+      
+
+           
 
             
         </div>
@@ -162,68 +154,6 @@
     {% include 'footer.html' %}
 
     <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
-    <script>
-    // PDF合并功能
-    document.getElementById('mergeForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        const formData = new FormData();
-        const files = document.getElementById('mergeFiles').files;
-        
-        if (files.length === 0) {
-            alert('请选择至少一个PDF文件');
-            return;
-        }
-        
-        for (let file of files) {
-            formData.append('files[]', file);
-        }
-        
-        try {
-            const response = await fetch('/merge', {
-                method: 'POST',
-                body: formData
-            });
-            
-            if (response.ok) {
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'merged.pdf';
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                a.remove();
-            } else {
-                const error = await response.json();
-                alert(error.error || '合并失败，请重试');
-            }
-        } catch (error) {
-            alert('发生错误，请重试');
-            console.error('Error:', error);
-        }
-    });
-
-    // 旋转页面
-    function rotatePage(button, angle) {
-        const thumbnail = button.closest('.page-thumbnail');
-        const index = Array.from(thumbnailContainer.children).indexOf(thumbnail);
-        if (index > -1) {
-            // 用于动画的真实角度
-            let currentRealRotation = pageThumbnails[index].realRotation || 0;
-            let newRealRotation = currentRealRotation + angle;
-            pageThumbnails[index].realRotation = newRealRotation;
-            // 用于后端的角度
-            let newRotation = newRealRotation % 360;
-            if (newRotation < 0) newRotation += 360;
-            pageThumbnails[index].rotation = newRotation;
-            // 只旋转canvas
-            const canvas = thumbnail.querySelector('canvas');
-            canvas.style.transform = `rotate(${newRealRotation}deg)`;
-            updatePreview();
-        }
-    }
-    </script>
+    
 </body>
 </html> 
