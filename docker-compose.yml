@@ -1,4 +1,4 @@
-version: '1.3.0'
+version: '1.4.0'
 
 services:
   pdf-tool:
@@ -8,4 +8,7 @@ services:
       - "8000:8000"
     environment:
       - FLASK_ENV=production
+    volumes:
+      - ./uploads:/app/uploads
+      - ./compressed_outputs:/app/compressed_outputs
     restart: unless-stopped

@@ -24,13 +24,25 @@
    - 支持多PDF文件合并，页面可自定义顺序。
    - 支持页面删除、旋转、拖拽排序，合并后可直接预览和下载。
 
+6. **PDF拆分工具**
+   - 将PDF文件按页面拆分，支持自定义拆分范围，灵活便捷。
+
+7. **PDF页数计算工具**
+   - 批量计算PDF页数，并支持导出表格。  
+8. **PDF转ppt工具**
+   - 支持PDF批量转ppt。  
+9. **word转pdf工具**
+   - 支持批量将word转化成pdf。  
+
 ---
 
-## 使用方法
+## python部署方法
+
 
 1. 克隆本项目到本地：
    ```bash
-   git clone <your-repo-url>
+   git clone https://github.com/deskjockey-996/pdf_tools.git
+   cd pdf_tools/image_to_pdf
    ```
 2. 安装依赖：
    ```bash
@@ -42,67 +54,21 @@
    ```
 4. 浏览器访问 `http://localhost:8000`，即可使用全部功能。
 
----
-
-## 反馈与建议
-
-如有问题或建议，欢迎提issue或联系作者。
-
-## 🌟 功能特点
-
-### 已实现功能
-
-1. **PDF旋转工具**
-2. **图片转PDF工具**
-3. **PDF转图片工具**
-4. **PDF水印工具**
-5. **PDF合并工具**
-
-### 即将推出功能
-- PDF压缩工具
-- PDF拆分工具
-
-
-## 🚀 快速开始
-
-### 环境要求
-- Python 3.7+
-- Flask
-- PyPDF2
-- 现代浏览器（Chrome、Firefox、Edge等）
-
-### 安装步骤
-
-1. 克隆仓库
+## docker部署方法
+1. 下载 docker-compose 配置文件
 ```bash
-git clone https://github.com/deskjockey-996/pdf_tools.git
-cd pdf_tools
+curl -O https://raw.githubusercontent.com/deskjockey-996/pdf_tools/main/docker-compose.yml
 ```
-
-2. 安装依赖
+2. 启动应用
 ```bash
-pip install -r requirements.txt
+docker-compose up -d
 ```
-
-3. 运行应用
+3. 停止应用
 ```bash
-python app.py
+docker-compose down
 ```
 
-4. 在浏览器中访问
-```
-http://localhost:8000
-```
-
-## 💻 使用说明
-
-### PDF旋转工具
-1. 点击首页的"PDF旋转工具"卡片
-2. 上传PDF文件
-3. 在左侧面板选择需要旋转的页面
-4. 在右侧面板选择旋转角度
-5. 点击"旋转选中页面"按钮
-6. 操作完成后点击"保存更改"下载处理后的文件
+浏览器访问 `http://localhost:8000`，即可使用全部功能。
 
 ## 🛠️ 技术栈
 
@@ -135,20 +101,8 @@ http://localhost:8000
 │   └── ico.jpeg
 ├── templates/              # 前端页面模板
 │   ├── index.html
-│   ├── pdf_merge.html
-│   ├── pdf_watermark.html
-│   ├── pdf2image.html
-│   ├── image2pdf.html
-│   ├── rotate.html
-│   └── footer.html
 ├── routes/                 # 各功能模块后端路由
 │   ├── __init__.py
-│   ├── pdf_merge.py
-│   ├── pdf_watermark.py
-│   ├── pdf2image.py
-│   ├── image2pdf.py
-│   ├── rotate.py
-│   └── pdf_rotate.py
 ├── uploads/                # 上传及临时文件目录
 └── .gitignore
 ```
@@ -162,8 +116,6 @@ http://localhost:8000
 
 ## 🔒 安全说明
 
-- 所有上传的文件都使用UUID重命名
-- 处理完成后自动删除原文件
 - 支持的文件类型限制为PDF
 - 建议文件大小不超过100MB
 
@@ -175,15 +127,6 @@ http://localhost:8000
 2. 添加了必要的测试
 3. 更新了相关文档
 
-## 📝 开发计划
-
-- [ ] PDF合并功能
-- [ ] PDF压缩功能
-- [ ] PDF拆分功能
-- [ ] PDF转图片功能
-- [ ] PDF水印功能
-- [ ] 批量处理功能
-
 
 ## 📞 联系方式
 
@@ -192,6 +135,10 @@ http://localhost:8000
 - 发送邮件至：[您的邮箱]
 - 微信：[您的微信号]
 
+### 即将推出功能
+
+- 你更期待什么功能呢？
+
 ## 🙏 致谢
 
 感谢所有为本项目做出贡献的开发者！
@@ -199,57 +146,3 @@ http://localhost:8000
 ---
 
 *注：本项目仍在积极开发中，欢迎提供建议和反馈。* 
-
-
-
-# PDF 工具应用
-
-## 系统要求
-- Docker 20.10+
-- Docker Compose 1.29+
-
-## 快速启动
-```bash
-# 下载 docker-compose 配置文件
-curl -O https://raw.githubusercontent.com/deskjockey-996/pdf_tools/main/docker-compose.yml
-
-# 启动应用
-docker-compose up -d
-
-# 停止应用
-docker-compose down
-```
-
-## 访问应用
-打开浏览器访问：http://localhost:8000
-
-## 配置选项
-创建 `.env` 文件自定义配置：
-```ini
-# Flask 配置
-FLASK_DEBUG=0
-PORT=8000
-
-
-```
-
-## 高级用法
-### 使用特定版本
-```yaml
-# 修改 docker-compose.yml
-image: ghcr.io/你的GitHub用户名/pdf_tools:v1.2
-```
-
-### 查看日志
-```bash
-docker logs pdf-tool -f
-```
-
-### 进入容器
-```bash
-docker exec -it pdf-tool /bin/bash
-```
-
-## 技术支持
-遇到问题请提交 issue：  
-https://github.com/你的GitHub用户名/pdf_tools/issues

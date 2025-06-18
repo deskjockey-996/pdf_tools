@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF页数计算工具 - PDF工具大全</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='ico.jpeg') }}">
+    <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/all.min.css') }}" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .container-fluid {
+            flex: 1;
+        }
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            height: calc(100vh - 100px);
+            display: flex;
+            flex-direction: column;
+        }
+        .card-header {
+            background-color: #007bff;
+            color: white;
+            border-radius: 15px 15px 0 0 !important;
+            flex-shrink: 0;
+        }
+        .card-body {
+            flex: 1;
+            overflow: hidden;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            border: none;
+            padding: 10px 20px;
+            min-width: 140px;
+            font-size: 1.1rem;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+        .form-control {
+            border-radius: 10px;
+        }
+        .operation-panel {
+            background: #fff;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px;
+            flex-shrink: 0;
+        }
+        .file-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            min-height: 0;
+        }
+        .file-item {
+            background: #fff;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .file-item:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+            transition: all 0.3s ease;
+        }
+        .file-info {
+            flex: 1;
+            margin-right: 15px;
+        }
+        .file-name {
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+        .file-size {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .back-button {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+        }
+        .pdf-preview {
+            width: 100%;
+            height: calc(100% - 10px);
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        .pdf-preview iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            border-radius: 10px;
+        }
+        .table-container {
+            flex: 1;
+            overflow: auto;
+            padding: 15px;
+        }
+        .table {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 0;
+        }
+        .table th {
+            background: #f8f9fa;
+            border-top: none;
+        }
+        .preview-btn {
+            padding: 4px 8px;
+            font-size: 0.9rem;
+        }
+        .export-panel {
+            padding: 15px;
+            background: white;
+            border-top: 1px solid #eee;
+        }
+        .modal-dialog.modal-xl {
+            max-width: 90%;  /* 增加宽度占比 */
+            height: 90vh;    /* 设置高度为视窗高度的90% */
+            margin: 5vh auto;  /* 上下留5%的间距 */
+        }
+        
+        .modal-content {
+            height: 100%;  /* 占满父容器高度 */
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .modal-body {
+            flex: 1;        /* 占用剩余空间 */
+            padding: 0;     /* 移除内边距 */
+            overflow: hidden;  /* 防止出现双滚动条 */
+        }
+        
+        .pdf-preview {
+            width: 100%;
+            height: 100%;  /* 占满整个modal-body */
+            position: relative;
+            margin: 0;
+        }
+        
+        .pdf-preview iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: block;  /* 移除iframe的行内元素间距 */
+        }
+
+        .modal-header {
+            padding: 0.5rem 1rem;  /* 减小头部高度 */
+        }
+
+        /* 确保模态框在移动设备上也能全屏显示 */
+        @media (max-width: 768px) {
+            .modal-dialog.modal-xl {
+                max-width: 100%;
+                height: 100vh;
+                margin: 0;
+            }
+            
+            .modal-content {
+                border-radius: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <a href="/" class="btn btn-light back-button">
+        <i class="fas fa-arrow-left"></i> 返回首页
+    </a>
+
+    <div class="container-fluid py-4">
+        <h1 class="text-center mb-4">PDF页数计算工具</h1>
+        <div class="row">
+            <!-- 文件选择面板 -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-file-pdf me-2"></i>选择PDF文件</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="operation-panel">
+                            <input type="file" class="form-control" id="pdfFiles" accept=".pdf" multiple>
+                        </div>
+                        <div class="file-list" id="fileList">
+                            <!-- 文件列表将在这里动态生成 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 页数统计和预览面板 -->
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-table me-2"></i>页数统计</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-container">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>序号</th>
+                                        <th>文件名</th>
+                                        <th>页数</th>
+                                        <th>文件大小</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="resultTable">
+                                    <!-- 统计结果将在这里动态生成 -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="export-panel text-end">
+                            <button class="btn btn-primary" id="exportBtn" disabled>
+                                <i class="fas fa-file-export me-2"></i>导出统计表
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PDF预览模态框 -->
+        <div class="modal fade" id="previewModal" tabindex="-1">
+            <div class="modal-dialog modal-xl modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">PDF预览</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body p-0">
+                        <div class="pdf-preview" id="pdfPreview">
+                            <!-- PDF预览将在这里显示 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 加载遮罩 -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">加载中...</span>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+    <script>
+        let fileResults = [];
+        const pdfFilesInput = document.getElementById('pdfFiles');
+        const fileList = document.getElementById('fileList');
+        const resultTable = document.getElementById('resultTable');
+        const exportBtn = document.getElementById('exportBtn');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const previewModal = new bootstrap.Modal(document.getElementById('previewModal'));
+
+        // 处理文件选择
+        pdfFilesInput.addEventListener('change', async function(event) {
+            const files = event.target.files;
+            if (files.length === 0) return;
+
+            loadingOverlay.style.display = 'flex';
+            fileResults = [];
+            fileList.innerHTML = '';
+            resultTable.innerHTML = '';
+
+            try {
+                for (let file of files) {
+                    if (!file.type === 'application/pdf') continue;
+
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    const response = await fetch('/pdf_count/analyze', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('处理文件时出错');
+                    }
+
+                    const result = await response.json();
+                    if (result.error) {
+                        throw new Error(result.error);
+                    }
+
+                    // 添加到结果列表
+                    fileResults.push({
+                        name: file.name,
+                        pages: result.pages,
+                        size: formatFileSize(file.size),
+                        file: file
+                    });
+
+                    // 更新文件列表
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item';
+                    fileItem.innerHTML = `
+                        <div class="file-info">
+                            <div class="file-name">${file.name}</div>
+                            <div class="file-size">${formatFileSize(file.size)}</div>
+                        </div>
+                        <div class="file-pages">
+                            <span class="badge bg-primary">${result.pages} 页</span>
+                        </div>
+                    `;
+                    fileList.appendChild(fileItem);
+
+                    // 更新结果表格
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${fileResults.length}</td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <span class="filename-display me-2">${file.name}</span>
+                                <button class="btn btn-sm btn-outline-secondary edit-filename-btn" onclick="editFilename(${fileResults.length - 1})">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                            </div>
+                        </td>
+                        <td>${result.pages}</td>
+                        <td>${formatFileSize(file.size)}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary preview-btn" onclick="previewPDF(${fileResults.length - 1})">
+                                <i class="fas fa-eye"></i> 预览
+                            </button>
+                        </td>
+                    `;
+                    resultTable.appendChild(row);
+                }
+
+                exportBtn.disabled = false;
+            } catch (error) {
+                console.error('Error:', error);
+                alert(error.message || '处理文件时出错');
+            } finally {
+                loadingOverlay.style.display = 'none';
+            }
+        });
+
+        // 预览PDF
+        async function previewPDF(index) {
+            const file = fileResults[index].file;
+            loadingOverlay.style.display = 'flex';
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const response = await fetch('/pdf_count/preview', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error('预览失败');
+                }
+
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                document.getElementById('pdfPreview').innerHTML = `
+                    <iframe src="${url}"></iframe>
+                `;
+                previewModal.show();
+            } catch (error) {
+                console.error('Error:', error);
+                alert(error.message || '预览失败');
+            } finally {
+                loadingOverlay.style.display = 'none';
+            }
+        }
+
+        // 导出统计表
+        exportBtn.addEventListener('click', async function() {
+            if (fileResults.length === 0) return;
+
+            try {
+                loadingOverlay.style.display = 'flex';
+                
+                // 准备导出数据
+                const exportData = fileResults.map(result => ({
+                    '序号': fileResults.indexOf(result) + 1,
+                    '文件名': result.name,
+                    '页数': result.pages,
+                    '文件大小': result.size
+                }));
+
+                // 发送导出请求
+                const response = await fetch('/pdf_count/export', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        files: exportData
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('导出失败');
+                }
+
+                // 下载文件
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'pdf_pages_count.xlsx';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error('Error:', error);
+                alert(error.message || '导出失败');
+            } finally {
+                loadingOverlay.style.display = 'none';
+            }
+        });
+
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // 编辑文件名
+        function editFilename(index) {
+            const row = resultTable.children[index];
+            const filenameCell = row.children[1];
+            const currentName = fileResults[index].name;
+            
+            // 创建编辑表单
+            const editForm = document.createElement('div');
+            editForm.className = 'd-flex align-items-center';
+            editForm.innerHTML = `
+                <input type="text" class="form-control form-control-sm me-2" value="${currentName}">
+                <button class="btn btn-sm btn-success me-1" onclick="saveFilename(${index})">
+                    <i class="fas fa-check"></i>
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="cancelEdit(${index})">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            
+            // 替换显示内容
+            filenameCell.innerHTML = '';
+            filenameCell.appendChild(editForm);
+            
+            // 聚焦输入框
+            const input = editForm.querySelector('input');
+            input.focus();
+            input.select();
+        }
+
+        // 保存文件名
+        function saveFilename(index) {
+            const row = resultTable.children[index];
+            const input = row.querySelector('input');
+            const newName = input.value.trim();
+            
+            if (newName) {
+                // 更新显示
+                const filenameCell = row.children[1];
+                filenameCell.innerHTML = `
+                    <div class="d-flex align-items-center">
+                        <span class="filename-display me-2">${newName}</span>
+                        <button class="btn btn-sm btn-outline-secondary edit-filename-btn" onclick="editFilename(${index})">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </div>
+                `;
+                
+                // 更新数据
+                fileResults[index].name = newName;
+            }
+        }
+
+        // 取消编辑
+        function cancelEdit(index) {
+            const row = resultTable.children[index];
+            const filenameCell = row.children[1];
+            const currentName = fileResults[index].name;
+            
+            // 恢复显示
+            filenameCell.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <span class="filename-display me-2">${currentName}</span>
+                    <button class="btn btn-sm btn-outline-secondary edit-filename-btn" onclick="editFilename(${index})">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html> 

@@ -9,6 +9,10 @@ RUN apt-get update --fix-missing && \
 # 设置工作目录
 WORKDIR /app
 
+# 创建必要的目录
+RUN mkdir -p uploads compressed_outputs && \
+    chmod 777 uploads compressed_outputs
+
 # 复制依赖文件并安装
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

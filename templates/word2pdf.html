@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word转PDF工具 - PDF工具大全</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='ico.jpeg') }}">
+    <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/all.min.css') }}" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .container-fluid {
+            flex: 1;
+        }
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        .card-header {
+            background-color: #007bff;
+            color: white;
+            border-radius: 15px 15px 0 0 !important;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            border: none;
+            padding: 10px 20px;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+        .form-control {
+            border-radius: 10px;
+        }
+        .alert {
+            border-radius: 10px;
+        }
+        .back-button {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <a href="/" class="btn btn-light back-button">
+        <i class="fas fa-arrow-left"></i> 返回首页
+    </a>
+
+    <div class="container-fluid py-4">
+        <h1 class="text-center mb-4">Word转PDF工具</h1>
+        
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="alert alert-info" role="alert">
+            <strong>注意：</strong>目前仅支持 .docx 格式的文件。如果您有 .doc 格式的文件，请先将其另存为 .docx 格式后再上传。
+        </div>
+
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-file-word me-2"></i>Word转PDF</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="uploadForm" enctype="multipart/form-data">
+                            <div class="mb-4">
+                                <label for="wordFiles" class="form-label">选择Word文件（可多选）</label>
+                                <input type="file" class="form-control" id="wordFiles" name="wordFiles" multiple accept=".docx" required>
+                                <div class="form-text">支持多个Word文件同时转换</div>
+                            </div>
+                            <div class="text-center">
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-file-pdf me-2"></i>开始转换
+                                </button>
+                            </div>
+                        </form>
+                        <div id="progress" class="mt-4" style="display: none;">
+                            <div class="progress mb-3">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                            </div>
+                            <div id="progressDetails" class="alert alert-info" style="display: none;">
+                                <h6 class="mb-2">转换进度：</h6>
+                                <div id="fileProgress" class="mb-2"></div>
+                                <div id="currentFile" class="small"></div>
+                            </div>
+                            <p class="text-center mt-2" id="progressText">正在转换...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+    <script>
+    document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const progress = document.getElementById('progress');
+        const progressBar = progress.querySelector('.progress-bar');
+        const progressText = document.getElementById('progressText');
+        const progressDetails = document.getElementById('progressDetails');
+        const fileProgress = document.getElementById('fileProgress');
+        const currentFile = document.getElementById('currentFile');
+        
+        progress.style.display = 'block';
+        progressDetails.style.display = 'block';
+        progressBar.style.width = '0%';
+        progressText.textContent = '正在转换...';
+        
+        // 获取所有选中的文件
+        const files = document.getElementById('wordFiles').files;
+        fileProgress.innerHTML = '';
+        
+        // 为每个文件创建进度项
+        for (let file of files) {
+            const fileItem = document.createElement('div');
+            fileItem.className = 'mb-1';
+            fileItem.id = `file-${file.name}`;
+            fileItem.innerHTML = `
+                <i class="fas fa-file-word text-primary me-2"></i>
+                ${file.name}
+                <span class="badge bg-secondary ms-2">待转换</span>
+            `;
+            fileProgress.appendChild(fileItem);
+        }
+        
+        try {
+            const response = await fetch('/word2pdf', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'converted_pdfs.zip';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                // 更新所有文件状态为已完成
+                for (let file of files) {
+                    const fileItem = document.getElementById(`file-${file.name}`);
+                    if (fileItem) {
+                        const badge = fileItem.querySelector('.badge');
+                        badge.className = 'badge bg-success ms-2';
+                        badge.textContent = '已完成';
+                    }
+                }
+                
+                progressBar.style.width = '100%';
+                progressText.textContent = '转换完成！';
+                progressBar.classList.remove('bg-danger');
+                progressBar.classList.add('bg-success');
+            } else {
+                throw new Error('转换失败');
+            }
+        } catch (error) {
+            progressText.textContent = '转换失败：' + error.message;
+            progressBar.classList.add('bg-danger');
+            
+            // 更新所有文件状态为失败
+            for (let file of files) {
+                const fileItem = document.getElementById(`file-${file.name}`);
+                if (fileItem) {
+                    const badge = fileItem.querySelector('.badge');
+                    badge.className = 'badge bg-danger ms-2';
+                    badge.textContent = '转换失败';
+                }
+            }
+        }
+    });
+
+    // 添加文件选择时的预览
+    document.getElementById('wordFiles').addEventListener('change', function(e) {
+        const files = e.target.files;
+        const fileProgress = document.getElementById('fileProgress');
+        fileProgress.innerHTML = '';
+        
+        for (let file of files) {
+            const fileItem = document.createElement('div');
+            fileItem.className = 'mb-1';
+            fileItem.id = `file-${file.name}`;
+            fileItem.innerHTML = `
+                <i class="fas fa-file-word text-primary me-2"></i>
+                ${file.name}
+                <span class="badge bg-secondary ms-2">待转换</span>
+            `;
+            fileProgress.appendChild(fileItem);
+        }
+    });
+    </script>
+</body>
+</html> 
