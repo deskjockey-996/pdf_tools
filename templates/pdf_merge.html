@@ -72,9 +72,13 @@
         }
         .thumbnail-container {
             flex: 1;
+            max-height: 800px;
             overflow-y: auto;
             padding: 15px;
             min-height: 0;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            background: #fafbfc;
         }
         .page-thumbnail {
             width: 100%;
@@ -154,9 +158,12 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
         .file-list {
-            max-height: 200px;
+            max-height: 800px;
             overflow-y: auto;
             margin: 15px 0;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            background: #fafbfc;
         }
         .file-item {
             background: #fff;
@@ -186,21 +193,30 @@
             min-height: 400px;
             display: flex;
             flex-direction: column;
+            position: relative;
         }
         .pdf-preview {
             flex: 1 1 auto;
-            min-height: 400px;
+            min-height: 600px;
             display: flex;
             align-items: center;
             justify-content: center;
+            margin-bottom: 0;
         }
         .operation-panel.text-center {
-            margin-top: 30px;
-            margin-bottom: 30px;
+            margin-top: 20px;
+            margin-bottom: 10px;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 80px;
+            min-height: 60px;
+            width: 100%;
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            background: #fff;
+            border-radius: 0 0 15px 15px;
+            box-shadow: 0 -2px 8px rgba(0,0,0,0.03);
         }
         .btn-primary {
             min-width: 140px;
@@ -346,6 +362,12 @@
                 formData.append('files[]', file);
             });
 
+            // 调试打印，输出所有 key 和类型
+            console.log('selectedFiles:', selectedFiles);
+            for (let [key, value] of formData.entries()) {
+                console.log('FormData key:', key, 'type:', value instanceof File ? 'File' : typeof value, 'name:', value.name, 'size:', value.size);
+            }
+
             try {
                 const response = await fetch('/merge', {
                     method: 'POST',
@@ -413,10 +435,11 @@
                 thumbCanvas.style.transform = 'rotate(0deg)'; // 初始无旋转
                 thumbnailContainer.appendChild(thumbnail);
                 pageThumbnails.push({
-                    pageNumber: i,
+                    pageNumber: i, // UI显示用
                     element: thumbnail,
                     rotation: 0, // 用于后端
-                    realRotation: 0 // 用于前端动画
+                    realRotation: 0, // 用于前端动画
+                    pdfPageIndex: i - 1 // 记录原始PDF的页码索引
                 });
             }
         }
@@ -445,20 +468,17 @@
         // 移除页面
         function removePage(button) {
             const thumbnail = button.closest('.page-thumbnail');
-            const pageNumber = parseInt(thumbnail.querySelector('.page-number').textContent);
-            const index = pageThumbnails.findIndex(t => t.pageNumber === pageNumber);
-            if (index > -1) {
-                pageThumbnails.splice(index, 1);
+            const idx = Array.from(thumbnailContainer.children).indexOf(thumbnail);
+            if (idx > -1) {
+                pageThumbnails.splice(idx, 1);
                 thumbnail.remove();
 
-                // 重新编号所有缩略图和pageThumbnails
+                // 重新编号所有缩略图上的显示页码（不影响pdfPageIndex）
                 const thumbnails = Array.from(thumbnailContainer.getElementsByClassName('page-thumbnail'));
-                thumbnails.forEach((thumb, idx) => {
-                    // 更新缩略图上的页码
-                    thumb.querySelector('.page-number').textContent = idx + 1;
-                    // 更新 pageThumbnails 里的 pageNumber
-                    if (pageThumbnails[idx]) {
-                        pageThumbnails[idx].pageNumber = idx + 1;
+                thumbnails.forEach((thumb, i) => {
+                    thumb.querySelector('.page-number').textContent = i + 1;
+                    if (pageThumbnails[i]) {
+                        pageThumbnails[i].pageNumber = i + 1;
                     }
                 });
 
@@ -480,15 +500,24 @@
                 // 获取原始PDF文件
                 const response = await fetch(mergedPDFUrl);
                 const blob = await response.blob();
-                formData.append('file', blob, 'merged.pdf');
+
+                // 检查 blob 是否为空
+                if (blob.size === 0) {
+                    alert('生成的PDF为空，请重试');
+                    loadingOverlay.style.display = 'none';
+                    return;
+                }
+
+                // 字段名统一为 files[]
+                formData.append('files[]', blob, 'merged.pdf');
                 
-                // 添加页面顺序和旋转信息
+                // 添加页面顺序和旋转信息，传递原始pdfPageIndex+1
                 pageThumbnails.forEach((thumbnail, index) => {
-                    formData.append('pageNumbers[]', thumbnail.pageNumber);
+                    formData.append('pageNumbers[]', thumbnail.pdfPageIndex + 1);
                     formData.append('rotations[]', thumbnail.rotation);
                 });
 
-                const rotateResponse = await fetch('/rotate', {
+                const rotateResponse = await fetch('/merge', {
                     method: 'POST',
                     body: formData
                 });
@@ -501,6 +530,7 @@
                     }
                     mergedPDFUrl = URL.createObjectURL(newBlob);
                     previewFrame.src = mergedPDFUrl;
+                    await generateThumbnails(newBlob); // 保证缩略图和预览同步
                 } else {
                     const error = await rotateResponse.json();
                     alert(error.error || '预览更新失败，请重试');
@@ -525,16 +555,26 @@
             // 用当前预览的 PDF blob
             const response = await fetch(previewFrame.src);
             const blob = await response.blob();
-            formData.append('file', blob, 'result.pdf');
+
+            // 检查 blob 是否为空
+            if (blob.size === 0) {
+                alert('生成的PDF为空，请重试');
+                loadingOverlay.style.display = 'none';
+                return;
+            }
+
+            // 字段名统一为 files[]
+            formData.append('files[]', blob, 'result.pdf');
             
             // 添加页面顺序和旋转信息
             pageThumbnails.forEach((thumbnail, index) => {
                 formData.append('pageNumbers[]', thumbnail.pageNumber);
                 formData.append('rotations[]', thumbnail.rotation);
             });
-
+            
+            console.log(Array.from(formData.entries()));
             try {
-                const res = await fetch('/rotate', {
+                const res = await fetch('/merge', {
                     method: 'POST',
                     body: formData
                 });
