@@ -8,6 +8,8 @@ from routes.pdf_split import pdf_split
 from routes.pdf_count import pdf_count
 from routes.pdf2ppt import pdf2ppt
 from routes.word2pdf import word2pdf
+from routes.pdf_batch_merge import pdf_batch_merge_bp
+from routes.pdf_batch_merge_link import pdf_batch_merge_link_bp
 import os
 from PyPDF2 import PdfMerger, PdfReader, PdfWriter
 import tempfile
@@ -32,6 +34,8 @@ app.register_blueprint(pdf_split)
 app.register_blueprint(pdf_count, url_prefix='/pdf_count')
 app.register_blueprint(pdf2ppt, url_prefix='/pdf2ppt')
 app.register_blueprint(word2pdf, url_prefix='/word2pdf')
+app.register_blueprint(pdf_batch_merge_bp)
+app.register_blueprint(pdf_batch_merge_link_bp)
 
 # 确保上传目录存在
 os.makedirs('uploads', exist_ok=True)
